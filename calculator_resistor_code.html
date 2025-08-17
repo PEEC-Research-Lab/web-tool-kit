@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resistor Calculator</title>
+    <link rel="stylesheet" href="assets/css/salty.css" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+    <script>
+        const eia96List = "100\n102\n105\n107\n110\n113\n115\n118\n121\n124\n127\n130\n133\n137\n140\n143\n147\n150\n154\n158\n162\n165\n169\n174\n178\n182\n187\n191\n196\n200\n205\n210\n216\n221\n226\n232\n237\n243\n249\n255\n261\n267\n274\n280\n287\n294\n301\n309\n316\n324\n332\n340\n348\n357\n365\n374\n383\n392\n402\n412\n422\n432\n442\n453\n464\n475\n487\n499\n511\n523\n536\n549\n562\n576\n590\n604\n619\n634\n649\n665\n681\n698\n715\n732\n750\n768\n787\n806\n825\n845\n866\n887\n909\n931\n953\n976".split("\n");
+        const only_num = /[^0-9]/g;
+        const num_and_rm = /[^0-9RMrm]/g;
+        const eia96_last = /[^ZYRXSABHCDEFzyrxsabhcdef]/g;
+        const only_num_str = "0123456789";
+        const num_and_rm_str = "0123456789RMm";
+        const eia96_last_str = "ZYRXSABHCDEF";
+
+        const eia96_exp = {
+            "Z": 1e-3,
+            "Y": 1e-2,
+            "R": 1e-2,
+            "X": 1e-1,
+            "S": 1e-1,
+            "A": 1e0,
+            "B": 1e1,
+            "H": 1e1,
+            "C": 1e2,
+            "D": 1e3,
+            "E": 1e4,
+            "F": 1e5,
+        }
+
+        const unitMap = {
+            'p': 1e-12,
+            'n': 1e-9,
+            'μ': 1e-6,
+            'm': 1e-3,
+            '': 1,
+            'K': 1e3,
+            'M': 1e6,
+            'G': 1e9,
+            'T': 1e12,
+        };
+
+        var selectResistorMode = "3digit";
+        var lastTimeMode = "toResistor";
+
+        function convertLastTime() {
+            switch (lastTimeMode) {
+                case "toResistor":
+                    convertCodeToResistor();
+                    break;
+                case "toCode":
+                    convertResistorToCode();
+                    break;
+            }
+        }
+
+        function convertStringToNumber(str) {
+            str = str.replaceAll(",", "");
+            const match = str.match(/^(\d+\.?\d*)([pnμmKMGT])$/i);
+            if (match) {
+                const numberPart = parseFloat(match[1]);
+                const unit = match[2];
+                return numberPart * unitMap[unit];
+            }
+            return parseFloat(str);
+        }
+
+        function convertNumberToString(num) {
+            num = Number(num.toFixed(5));
+            const currentUnit = unitMap[document.getElementById("resistorUnit").value];
+            const value = num / currentUnit;
+            return value.toString();
+        }
+
+        function showXDigit(x, fromWhich) {
+            selectResistorMode = fromWhich;
+            for (let span of document.getElementsByClassName("digit-selector")) {
+                if (span.id == fromWhich) {
+                    span.classList.add("primary");
+                } else {
+                    span.classList.remove("primary");
+                }
+            }
+            for (let index = 1; index <= 4; index++) {
+                var tempInput = document.getElementById("num" + String(index));
+                if (index <= x) {
+                    tempInput.style.display = "block";
+                    checkCodeLegal("num" + String(index));
+                } else {
+                    tempInput.style.display = "none";
+                }
+            }
+            updateDataList();
+            convertLastTime();
+        }
+
+        function updateDataList() {
+            switch (selectResistorMode) {
+                case "4digit":
+                    var legalInputType = [num_and_rm_str, num_and_rm_str, num_and_rm_str, only_num_str];
+                    break;
+                case "3digit":
+                    var legalInputType = [num_and_rm_str, num_and_rm_str, only_num_str];
+                    break;
+                case "eia96":
+                    var legalInputType = [only_num_str, only_num_str, eia96_last_str];
+                    break;
+            }
+            for (let index in legalInputType) {
+                var tempNumList = document.getElementById(`num${Number(index) + 1}List`);
+                while (tempNumList.hasChildNodes()) {
+                    tempNumList.removeChild(tempNumList.firstChild);
+                }
+                for (var char of legalInputType[index].split("")) {
+                    var tempDiv = document.createElement("div", (value = char, _value = char));
+                    tempDiv.innerText = char;
+                    tempDiv.setAttribute("data-value", char)
+                    tempDiv.classList.add("datalist-option");
+                    tempNumList.appendChild(tempDiv);
+                }
+                tempNumList.style.width = `${document.getElementById(`num${Number(index) + 1}`).offsetWidth}px`;
+            }
+            bindDropDownList();
+        }
+
+        function checkCodeLegal(inputID) {
+            var tempInput = document.getElementById(inputID);
+            if (selectResistorMode == "eia96") {
+                if (inputID == "num3") {
+                    tempInput.value = tempInput.value.replace(eia96_last, '').slice(-1);
+                } else {
+                    tempInput.value = tempInput.value.replace(only_num, '').slice(-1);
+                }
+            } else if ((selectResistorMode == "3digit" & inputID == "num3") | inputID == "num4") {
+                tempInput.value = tempInput.value.replace(only_num, '').slice(-1);
+            } else {
+                tempInput.value = tempInput.value.replace(num_and_rm, '').slice(-1);
+            }
+
+            // check multiple letter
+            var letterCounter = 0;
+            var till = selectResistorMode == "4digit" ? 4 : 3;
+            var tempStr = String();
+            var letterList = new Array();
+            for (let index = 1; index <= till; index++) {
+                var inputSlot = document.getElementById("num" + String(index));
+                if (/^[a-zA-Z]$/.test(inputSlot.value)) {
+                    letterList.push(inputSlot);
+                }
+                tempStr += String(inputSlot.value ? inputSlot.value : 0);
+            }
+
+            if (letterList.length > 1) {
+                if (letterList[0] != tempInput) {
+                    letterList[0].value = null;
+                } else {
+                    letterList[1].value = null;
+                }
+            } else {
+                convertCodeToResistor(tempStr);
+            }
+        }
+
+        function convertCodeToResistor(tempStr) {
+            lastTimeMode = "toResistor";
+            if (arguments.length == 0) {
+                var till = selectResistorMode == "4digit" ? 4 : 3;
+                var tempStr = String();
+                for (let index = 1; index <= till; index++) {
+                    var tempInput = document.getElementById("num" + String(index));
+                    var char = String(tempInput.value ? tempInput.value : 0);
+                    if (char != "M") {
+                        char = char.toLowerCase();
+                    }
+                    tempStr += char;
+                }
+            }
+            var finalAns = 0;
+            if (tempStr.includes("r")) {
+                tempStr = tempStr.replace("r", ".");
+                finalAns = Number(tempStr);
+            } else if (tempStr.includes("m")) {
+                tempStr = tempStr.replace("m", ".");
+                finalAns = Number(tempStr) * 1e-3;
+            } else if (tempStr.includes("M")) {
+                tempStr = tempStr.replace("M", ".");
+                finalAns = Number(tempStr) * 1e6;
+            } else {
+                switch (selectResistorMode) {
+                    case "4digit":
+                        var base = Number(tempStr.slice(0, 3));
+                        var exp = Number(tempStr.slice(3));
+                        finalAns = base * Math.pow(10, exp);
+                        break;
+                    case "3digit":
+                        var base = Number(tempStr.slice(0, 2));
+                        var exp = Number(tempStr.slice(2));
+                        finalAns = base * Math.pow(10, exp);
+                        break;
+                    case "eia96":
+                        var base = eia96List[Number(tempStr.slice(0, 2)) - 1];
+                        var exp = eia96_exp[tempStr.slice(2).toUpperCase()];
+                        finalAns = base * exp;
+                        break;
+                }
+            }
+            var finalStr = convertNumberToString(finalAns);
+            document.getElementById("resistance_num").value = finalStr;
+        }
+
+        function convertResistorToCode() {
+            lastTimeMode = "toCode";
+            var temp_str = document.getElementById("resistance_num").value + document.getElementById("resistorUnit").value;
+            var resistorNum = convertStringToNumber(temp_str);
+            switch (selectResistorMode) {
+                case "4digit":
+                    var base = String(resistorNum).slice(0, 3);
+                    var exp = String(resistorNum).slice(3).length;
+                    var num = 3;
+                    break;
+                case "3digit":
+                    var base = String(resistorNum).slice(0, 2);
+                    var exp = String(resistorNum).slice(2).length;
+                    var num = 2;
+                    break;
+                default: return;
+            }
+            for (let index = 1; index <= num; index++) {
+                var tempInput = document.getElementById("num" + String(index));
+                tempInput.value = Number(base.charAt(index - 1));
+            }
+            document.getElementById("num" + String(num + 1)).value = Number(exp);
+        }
+
+        function bindDropDownList() {
+            const datalists = document.querySelectorAll('.custom-datalist');
+            datalists.forEach(datalist => {
+                const input = datalist.querySelector('input');
+                const options = datalist.querySelector('.datalist-options');
+                const optionItems = options.querySelectorAll('.datalist-option');
+
+                input.addEventListener('focus', function () {
+                    options.classList.add('active');
+                });
+
+                input.addEventListener('focusout', function () {
+                    if (!datalist.contains(event.target)) {
+                        options.classList.remove('active');
+                    }
+                });
+
+                document.addEventListener('click', function (event) {
+                    if (!datalist.contains(event.target)) {
+                        options.classList.remove('active');
+                    }
+                });
+
+                optionItems.forEach(item => {
+                    item.addEventListener('click', function () {
+                        input.value = this.getAttribute('data-value');
+                        options.classList.remove('active');
+                        input.onchange();
+                    });
+                });
+            });
+        }
+
+        // after html init
+        document.addEventListener("DOMContentLoaded", function () {
+            updateDataList();
+        });
+
+    </script>
+</head>
+
+<body class="is-preload">
+
+
+    <!-- Wrapper -->
+    <div id="wrapper">
+        <!-- Main -->
+        <div id="main">
+            <div class="inner">
+
+                <!-- Header -->
+                <header id="header">
+                    <a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+                    <ul class="icons">
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                    </ul>
+                </header>
+                <section>
+                    <div class="row aln-center">
+                        <div class="col-7 col-12-medium align-center box">
+                            <h1>Resistor Value Calculator</h1>
+                            <div class="row aln-center" style="margin-bottom: 5vh;">
+                                <span class="col-3 button primary digit-selector" id="3digit"
+                                    onclick="showXDigit(3, this.id)">3
+                                    Digit
+                                    EIA</span>
+                                <span class="col-3 button digit-selector" id="4digit" onclick="showXDigit(4, this.id)">4
+                                    Digit
+                                    EIA</span>
+                                <span class="col-3 button digit-selector" id="eia96"
+                                    onclick="showXDigit(3, this.id)">EIA-96</span>
+                            </div>
+
+                            <div class="row aln-center" style=" height: 5vh;">
+                                <div class="col-6" style="display: flex;">
+                                    <div class="custom-datalist" id="custom-num1">
+                                        <input type="text" id="num1" placeholder="0" style="display: block;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num1List" class="datalist-options"></div>
+                                    </div>
+                                    <div class="custom-datalist" id="custom-num2">
+                                        <input type="text" id="num2" placeholder="0" style="display: block;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num2List" class="datalist-options"></div>
+                                    </div>
+                                    <div class="custom-datalist" id="custom-num3">
+                                        <input type="text" id="num3" placeholder="0" style="display: block;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num3List" class="datalist-options"></div>
+                                    </div>
+                                    <div class="custom-datalist" id="custom-num4">
+                                        <input type="text" id="num4" placeholder="0" style="display: none;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num4List" class="datalist-options"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row aln-center" style=" height: 5vh;">
+                                <div class="col-1">
+                                    <h2 style="text-align: center;">
+                                        ||
+                                    </h2>
+                                </div>
+                            </div>
+                            <div class="row aln-center" style=" height: 5vh;">
+                                <div class="col-5" style="display: flex;">
+                                    <div class="col-4">
+                                        <input type="text" id="resistance_num" placeholder="0"
+                                            onchange="convertResistorToCode()" />
+                                    </div>
+                                    <div class="col-1">
+                                        <select id="resistorUnit" style="font-weight: bolder;"
+                                            onchange="convertLastTime()">
+                                            <option value="T">TΩ</option>
+                                            <option value="G">GΩ</option>
+                                            <option value="M">MΩ</option>
+                                            <option value="K">kΩ</option>
+                                            <option value="" selected>Ω</option>
+                                            <option value="m">mΩ</option>
+                                            <option value="μ">μΩ</option>
+                                            <option value="n">nΩ</option>
+                                            <option value="p">pΩ</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+            </section>
+
+        </div>
+    </div>
+    </div>
+</body>

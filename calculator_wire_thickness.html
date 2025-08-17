@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>PCB Trace Calculator</title>
+
+    <script>
+        let internalResults = {};
+        let externalResults = {};
+        let wireLengthInMM = 1000;
+
+        // Helper functions
+        function getCopperThickness(ozValue) {
+            return 0.0348 * ozValue;
+        }
+
+        function getCopperWidthFromMaxI(I_max, ozValue, tempRise, layerType = 'external') {
+            // IPC-2221 standard, these are in inches, how lovely
+            let k = 0.048;  // constant for external layers
+            let b = 0.44;
+            let c = 0.725;
+            if (layerType.toLowerCase() === 'internal') {
+                k = 0.024;  // constant for internal layers
+            } else if (layerType.toLowerCase() !== 'external') {
+                throw new Error("Invalid layer type. Use 'external' or 'internal'.");
+            }
+            const area = Math.pow(I_max / (k * Math.pow(tempRise, b)), 1 / c);
+            const width = area / (ozValue * 1.378); // this is in inches
+            return width * 0.0254; // convert to mm
+        }
+
+        function convertWidth(widthInMM, unit) {
+            switch (unit) {
+                case 'mil':
+                    return (widthInMM / 0.0254).toFixed(4);
+                case 'inch':
+                    return (widthInMM / 25.4).toFixed(4);
+                case 'mm':
+                    return widthInMM.toFixed(4);
+                case 'm':
+                    return (widthInMM / 1000).toFixed(4);
+                default:
+                    return widthInMM.toFixed(4);
+            }
+        }
+        function convertLength(length, fromUnit, toUnit) {
+            if (fromUnit === toUnit) return length;
+
+            let lengthInMM;
+            switch (fromUnit) {
+                case 'mil':
+                    lengthInMM = length * 0.0254;
+                    break;
+                case 'inch':
+                    lengthInMM = length * 25.4;
+                    break;
+                case 'mm':
+                    lengthInMM = length;
+                    break;
+                case 'm':
+                    lengthInMM = length * 1000;
+                    break;
+                default:
+                    lengthInMM = length;
+            }
+
+            switch (toUnit) {
+                case 'mil':
+                    return (lengthInMM / 0.0254).toFixed(4);
+                case 'inch':
+                    return (lengthInMM / 25.4).toFixed(4);
+                case 'mm':
+                    return lengthInMM.toFixed(4);
+                case 'm':
+                    return (lengthInMM / 1000).toFixed(4);
+                default:
+                    return lengthInMM.toFixed(4);
+            }
+        }
+
+        function getCopperR(length, area) {
+            const rho_cu = 1.7E-8 * 1E3; // in mm
+            const R = (rho_cu * length) / area;
+            return R.toFixed(4);
+        }
+
+        function powerLoss(current, resistance) {
+            return (current * current * resistance).toFixed(4);
+        }
+
+        function calculateLoss(current, wireOz, traceLength, deltaTemp, layerType = 'external') {
+            const thickness = getCopperThickness(wireOz);
+            const widthInMM = getCopperWidthFromMaxI(current, wireOz, deltaTemp, layerType);
+            const R = getCopperR(traceLength, widthInMM * thickness);
+            return {
+                thickness: thickness.toFixed(4),
+                widthInMM: widthInMM,
+                resistance: R,
+                powerLoss: powerLoss(current, R)
+            };
+        }
+
+        function updateFields(results, layer) {
+            const unit = document.getElementById(layer + 'Unit').value;
+            document.getElementById(layer + 'Width').value = convertWidth(results.widthInMM, unit);
+            document.getElementById(layer + 'Resistance').value = results.resistance;
+            document.getElementById(layer + 'PowerLoss').value = results.powerLoss;
+        }
+
+        function onCalculate() {
+            const wireOz = parseFloat(document.getElementById('wireOz').value);
+            const powerTransfer = parseFloat(document.getElementById('powerTransfer').value);
+            const deltaTemp = parseFloat(document.getElementById('deltaTemp').value);
+            const inputVoltage = parseFloat(document.getElementById('inputVoltage').value);
+            const wireLengthWithUnit = parseFloat(document.getElementById('wireLength').value);
+            const wireLengthUnit = document.getElementById('wireLengthUnit').value;
+
+            wireLength = parseFloat(convertLength(wireLengthWithUnit, wireLengthUnit, 'mm'));
+
+            const I_max = powerTransfer / inputVoltage;
+
+            internalResults = calculateLoss(I_max, wireOz, wireLength, deltaTemp, 'internal');
+            externalResults = calculateLoss(I_max, wireOz, wireLength, deltaTemp, 'external');
+
+            updateFields(internalResults, 'internal');
+            updateFields(externalResults, 'external');
+        }
+
+        function onWireLengthChange() {
+            const wireLength = parseFloat(document.getElementById('wireLength').value);
+            const wireLengthUnit = document.getElementById('wireLengthUnit').value;
+            if (!isNaN(wireLength)) {
+                wireLengthInMM = parseFloat(convertLength(wireLength, wireLengthUnit, 'mm'));
+            }
+        }
+
+        function onUnitChange(layer) {
+            if (layer === 'internal') {
+                if (Object.keys(internalResults).length === 0) {
+                    return;
+                }
+                updateFields(internalResults, layer);
+            } else if (layer === 'wireLength') {
+                const wireLengthUnit = document.getElementById('wireLengthUnit').value;
+                if (!isNaN(wireLengthInMM)) {
+                    document.getElementById('wireLength').value = convertLength(wireLengthInMM, 'mm', wireLengthUnit);
+                }
+            } else {
+                if (Object.keys(externalResults).length === 0) {
+                    return;
+                }
+                updateFields(externalResults, layer);
+            }
+        }
+    </script>
+    <script>
+        var path = window.location.pathname;
+        var page = path.split("/").pop();
+        parent.updateURL(page);
+    </script>
+    <link rel="stylesheet" href="assets/css/salty.css" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+
+</head>
+
+<body class="is-preload">
+
+    <!-- Wrapper -->
+    <div id="wrapper">
+
+        <!-- Main -->
+        <div id="main">
+            <div class="inner">
+
+                <!-- Header -->
+                <header id="header">
+                    <a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+                    <ul class="icons">
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                    </ul>
+                </header>
+
+                <!-- Content -->
+                <section>
+                    <div class="container">
+                        <h1>PCB Trace Calculator</h1>
+                        <div class="form-group">
+                            <label for="wireOz">Wire Thickness:</label>
+                            <input type="text" id="wireOz" value="1">
+                            <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                <option>Oz</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="powerTransfer">Power Transfer</label>
+                            <input type="text" id="powerTransfer" value="48">
+                            <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                <option>Watts</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="powerTransfer">Allowed &Delta; Temp</label>
+                            <input type="text" id="deltaTemp" value="1">
+                            <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                <option>Kelvin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="inputVoltage">Input Voltage:</label>
+                            <input type="text" id="inputVoltage" value="2">
+                            <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                <option>V</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="wireLength">Wire Length:</label>
+                            <input type="text" id="wireLength" value="1000" onchange="onWireLengthChange();"
+                                onkeypress="this.onchange();" onpaste="this.onchange();" oninput="this.onchange();" />
+                            <select id="wireLengthUnit" onchange="onUnitChange('wireLength')">
+                                <option value="mm">mm</option>
+                                <option value="m">m</option>
+                                <option value="mil">mil</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                        <button onclick="onCalculate()">Calculate</button>
+                        <div class="results">
+                            <h2>Internal Layer Results</h2>
+                            <div class="form-group">
+                                <label for="internalWidth">Required Width:</label>
+                                <input type="text" id="internalWidth" readonly>
+                                <select id="internalUnit" onchange="onUnitChange('internal')">
+                                    <option value="mm">mm</option>
+                                    <option value="mil">mil</option>
+                                    <option value="inch">inch</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="internalResistance">Resulted Resistance:</label>
+                                <input type="text" id="internalResistance" readonly>
+                                <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                    <option>&Omega;</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="internalPowerLoss">Power Loss:</label>
+                                <input type="text" id="internalPowerLoss" readonly>
+                                <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                    <option>Watts</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="results">
+                            <h2>External Layer Results</h2>
+                            <div class="form-group">
+                                <label for="externalWidth">Required Width:</label>
+                                <input type="text" id="externalWidth" readonly>
+                                <select id="externalUnit" onchange="onUnitChange('external')">
+                                    <option value="mm">mm</option>
+                                    <option value="mil">mil</option>
+                                    <option value="inch">inch</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="externalResistance">Resulted Resistance:</label>
+                                <input type="text" id="externalResistance" readonly>
+                                <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                    <option>&Omega;</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="externalPowerLoss">Power Loss:</label>
+                                <input type="text" id="externalPowerLoss" readonly>
+                                <select id="unitPlaceHolder" class="placeholder_select" disabled>
+                                    <option>Watts</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="#"> Back To Top</a>
+                </section>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+<body>
+
+</body>
+
+</html>

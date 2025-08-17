@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Capacitor Calculator</title>
+    <link rel="stylesheet" href="assets/css/salty.css" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+    <script>
+
+        const eia198_dict = {
+            "A": 1,
+            "d": 4,
+            "B": 1.1,
+            "R": 4.3,
+            "C": 1.2,
+            "e": 4.5,
+            "D": 1.3,
+            "S": 4.7,
+            "E": 1.5,
+            "f": 5,
+            "F": 1.6,
+            "T": 5.1,
+            "G": 1.8,
+            "U": 5.6,
+            "H": 2,
+            "m": 6,
+            "J": 2.2,
+            "V": 6.2,
+            "K": 2.4,
+            "W": 6.8,
+            "a": 2.6,
+            "n": 7,
+            "L": 2.7,
+            "X": 7.5,
+            "M": 3,
+            "t": 8,
+            "N": 3.3,
+            "Y": 8.2,
+            "b": 3.5,
+            "y": 9,
+            "P": 3.6,
+            "Z": 9.1,
+            "Q": 3.9,
+        }
+
+        const Tolerance = {
+            "B": "0.1pF",
+            "C": "0.25pF",
+            "D": "0.5pF",
+            "F": "1%",
+            "G": "2%",
+            "J": "5%",
+            "K": "10%",
+            "M": "20%",
+            "Z": "+80% / -20%",
+        }
+
+        const eia198_letter = /[^AdBRCeDSEfFTGUHmJVKWanLXMtNYbyPZQ]/g;
+        const only_num = /[^0-9]/g;
+        const tolerance_letter = /[^BCDFGJKMZ]/g;
+
+        const only_num_str = "0123456789";
+        const eia198_letter_str = Object.keys(eia198_dict).join("");
+        const tolerance_letter_str = Object.keys(Tolerance).join("");
+
+        var selectCapacitorMode = "3digit";
+
+        const unitMap = {
+            "m": 1e9,
+            "μ": 1e6,
+            "n": 1e3,
+            "p": 1,
+        }
+
+        function convertNumberToString(num) {
+            num = Number(num.toFixed(5));
+            const currentUnit = unitMap[document.getElementById("CapacitorUnit").value];
+            const value = num / currentUnit;
+            return value.toString();
+        }
+
+        function showXDigit(x, fromWhich) {
+            selectCapacitorMode = fromWhich;
+            var tolerance_slot = document.getElementById("tolerance_num");
+            if (selectCapacitorMode == "4digit") {
+                tolerance_slot.style.display = "block";
+            } else {
+                tolerance_slot.style.display = "none";
+            }
+            for (let span of document.getElementsByClassName("digit-selector")) {
+                if (span.id == fromWhich) {
+                    span.classList.add("primary");
+                } else {
+                    span.classList.remove("primary");
+                }
+            }
+            for (let index = 1; index <= 4; index++) {
+                var tempInput = document.getElementById("num" + String(index));
+                if (index <= x) {
+                    tempInput.style.display = "block";
+                    checkCodeLegal("num" + String(index));
+                } else {
+                    tempInput.style.display = "none";
+                }
+            }
+            updateDataList();
+            convertCodeToCapacitor();
+        }
+
+        function updateDataList() {
+            switch (selectCapacitorMode) {
+                case "4digit":
+                    var legalInputType = [only_num_str, only_num_str, only_num_str, tolerance_letter_str];
+                    break;
+                case "3digit":
+                    var legalInputType = [only_num_str, only_num_str, only_num_str];
+                    break;
+                case "eia198":
+                    var legalInputType = [eia198_letter_str, only_num_str];
+                    break;
+            }
+            for (let index in legalInputType) {
+                var tempNumList = document.getElementById(`num${Number(index) + 1}List`);
+                while (tempNumList.hasChildNodes()) {
+                    tempNumList.removeChild(tempNumList.firstChild);
+                }
+                for (var char of legalInputType[index].split("")) {
+                    var tempDiv = document.createElement("div", (value = char, _value = char));
+                    tempDiv.innerText = char;
+                    tempDiv.setAttribute("data-value", char)
+                    tempDiv.classList.add("datalist-option");
+                    tempNumList.appendChild(tempDiv);
+                }
+                document.getElementById(`num${Number(index) + 1}`).value = legalInputType[index].split("")[0];
+                tempNumList.style.width = `${document.getElementById(`num${Number(index) + 1}`).offsetWidth}px`;
+            }
+            bindDropDownList();
+        }
+
+        function checkCodeLegal(inputID) {
+            var tempInput = document.getElementById(inputID);
+            if (selectCapacitorMode == "eia198" & inputID == "num1") {
+                tempInput.value = tempInput.value.replace(eia198_letter, '').slice(-1);
+            } else if (inputID == "num4") {
+                tempInput.value = tempInput.value.replace(tolerance_letter, '').slice(-1);
+            } else {
+                tempInput.value = tempInput.value.replace(only_num, '').slice(-1);
+            }
+            convertCodeToCapacitor();
+        }
+
+        function convertCodeToCapacitor() {
+            var tempStr = "";
+            var capacitor_input = document.getElementById("capacitor_num");
+            for (let index = 1; index <= 4; index++) {
+                var tempInput = document.getElementById("num" + String(index));
+                if (tempInput.value != "") {
+                    tempStr += tempInput.value;
+                } else {
+                    tempStr += "0";
+                }
+            }
+            switch (selectCapacitorMode) {
+                case "3digit":
+                    tempStr = tempStr.slice(0, 3);
+                    var tempNum = Number(tempStr.slice(0, 2)) * Math.pow(10, Number(tempStr.slice(2)));
+                    break;
+                case "4digit":
+                    tempStr = tempStr.slice(0, 4);
+                    var tolerance_slot = document.getElementById("tolerance_num");
+                    var tempNum = Number(tempStr.slice(0, 2)) * Math.pow(10, Number(tempStr.slice(2, 3)));
+                    tolerance_slot.value = Tolerance[tempStr.slice(-1)];
+                    break;
+                case "eia198":
+                    tempStr = tempStr.slice(0, 2);
+                    var tempNum = eia198_dict[tempStr.slice(0, 1)] * Math.pow(10, Number(tempStr.slice(1, 2)));;
+                    break;
+            }
+            capacitor_input.value = convertNumberToString(tempNum);
+        }
+
+        function bindDropDownList() {
+            const datalists = document.querySelectorAll('.custom-datalist');
+            datalists.forEach(datalist => {
+                const input = datalist.querySelector('input');
+                const options = datalist.querySelector('.datalist-options');
+                const optionItems = options.querySelectorAll('.datalist-option');
+
+                input.addEventListener('focus', function () {
+                    options.classList.add('active');
+                });
+
+                input.addEventListener('focusout', function () {
+                    if (!datalist.contains(event.target)) {
+                        options.classList.remove('active');
+                    }
+                });
+
+                document.addEventListener('click', function (event) {
+                    if (!datalist.contains(event.target)) {
+                        options.classList.remove('active');
+                    }
+                });
+
+                optionItems.forEach(item => {
+                    item.addEventListener('click', function () {
+                        input.value = this.getAttribute('data-value');
+                        options.classList.remove('active');
+                        input.onchange();
+                    });
+                });
+            });
+        }
+
+        // after html init
+        document.addEventListener("DOMContentLoaded", function () {
+            updateDataList();
+        });
+
+    </script>
+</head>
+
+<body class="is-preload">
+
+    <!-- Wrapper -->
+    <div id="wrapper">
+        <!-- Main -->
+        <div id="main">
+            <div class="inner">
+
+                <!-- Header -->
+                <header id="header">
+                    <a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+                    <ul class="icons">
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                    </ul>
+                </header>
+                <section>
+                    <div class="row aln-center">
+                        <div class="col-7 col-12-medium align-center box">
+                            <h1>Capacitor Value Calculator</h1>
+                            <div class="row aln-center" style="margin-bottom: 5vh;">
+                                <span class="col-3 button primary digit-selector" id="3digit"
+                                    onclick="showXDigit(3, this.id)">3
+                                    Digit
+                                    EIA</span>
+                                <span class="col-3 button digit-selector" id="4digit" onclick="showXDigit(4, this.id)">4
+                                    Digit
+                                    EIA</span>
+                                <span class="col-3 button digit-selector" id="eia198"
+                                    onclick="showXDigit(2, this.id)">EIA-198</span>
+                            </div>
+
+                            <div class="row aln-center" style="height: 5vh;">
+                                <div class="col-6" style="display: flex;">
+                                    <div class="custom-datalist" id="custom-num1">
+                                        <input type="text" id="num1" placeholder="0" style="display: block;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num1List" class="datalist-options"></div>
+                                    </div>
+                                    <div class="custom-datalist" id="custom-num2">
+                                        <input type="text" id="num2" placeholder="0" style="display: block;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num2List" class="datalist-options"></div>
+                                    </div>
+                                    <div class="custom-datalist" id="custom-num3">
+                                        <input type="text" id="num3" placeholder="0" style="display: block;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num3List" class="datalist-options"></div>
+                                    </div>
+                                    <div class="custom-datalist" id="custom-num4">
+                                        <input type="text" id="num4" placeholder="0" style="display: none;"
+                                            onchange="checkCodeLegal(this.id)" />
+                                        <div id="num4List" class="datalist-options"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row aln-center" style="height: 5vh;">
+                                <div class="col-1">
+                                    <h2 style="text-align: center;">
+                                        ||
+                                    </h2>
+                                </div>
+                            </div>
+                            <div class="row aln-center" style="height: 5vh;">
+                                <div class="col-6" style="display: flex;">
+                                    <div class="col-12">
+                                        <input type="text" id="capacitor_num" placeholder="" />
+                                    </div>
+                                    <div class="col-1"><select id="CapacitorUnit"
+                                            style="font-weight: bolder; min-width: max-content;"
+                                            onchange="convertCodeToCapacitor()">
+                                            <option value="m" selected>mF</option>
+                                            <option value="μ">μF</option>
+                                            <option value="n">nF</option>
+                                            <option value="p">pF</option>
+                                        </select></div>
+                                    <div class="col-1"><input type="text" id="tolerance_num" placeholder=""
+                                            style="display: none; min-width: min-content;" disabled /></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+            </section>
+
+        </div>
+    </div>
+    </div>
+</body>

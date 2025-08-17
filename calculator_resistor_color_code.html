@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Realistic Resistor Code</title>
+	<link rel="stylesheet" href="assets/css/salty.css" />
+	<link rel="stylesheet" href="assets/css/main.css" />
+</head>
+
+<body class="is-preload">
+
+
+	<!-- Wrapper -->
+	<div id="wrapper">
+		<!-- Main -->
+		<div id="main">
+			<div class="inner">
+
+				<!-- Header -->
+				<header id="header">
+					<a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+					<ul class="icons">
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                    </ul>
+				</header>
+				<section>
+					<div class="row aln-center">
+						<div class="col-7 col-12-medium align-center box">
+							<h1>Realistic Resistor Code</h1>
+							<div class="row aln-center" style="margin-bottom: 2vh;">
+								<span class="col-2 button" id="3band" onclick="changeBands(3, this.id)">3
+									bands</span>
+								<span class="col-2 button" id="4band" onclick="changeBands(4, this.id)">4 bands</span>
+								<span class="col-2 button" id="5band" onclick="changeBands(5, this.id)">5 bands</span>
+								<span class="col-2 button primary" id="6band" onclick="changeBands(6, this.id)">6
+									bands</span>
+							</div>
+
+							<div class="row aln-center" style="margin-top: 5vh;margin-bottom: 5vh;">
+								<div class="col-7">
+									<div class="resistor-container" style=" height: 9vh;">
+										<div class="lead"></div>
+										<div class="resistor-body">
+											<!-- Left Bulge -->
+											<div class="bulge" id="left-bulge">
+												<div class="band" id="band0"></div>
+											</div>
+											<!-- Middle Neck with color bands -->
+											<div class="neck_0">
+												<div class="neck_1"></div>
+												<div class="neck" id="neck">
+													<div class="band" id="band1"></div>
+													<div class="band" id="band2"></div>
+													<div class="band" id="band3"></div>
+													<div class="band" id="band4"></div>
+												</div>
+												<div class="neck_1"></div>
+											</div>
+											<!-- Right Bulge -->
+											<div class="bulge" id="right-bulge">
+												<div class="band" id="band5"></div>
+											</div>
+										</div>
+										<div class="lead"></div>
+									</div>
+								</div>
+							</div>
+							<div class="row aln-center" style=" height: 7vh;">
+								<div class="col-9">
+
+									<div class="controls">
+										<label id="band0-label" class="band_select">Band 1:
+											<select onchange="updateBand(0, this.value)" id="band0-label-select">
+											</select>
+										</label>
+
+										<label id="band1-label" class="band_select">Band 2:
+											<select onchange="updateBand(1, this.value)" id="band1-label-select">
+											</select>
+										</label>
+
+										<label id="band2-label" class="band_select">Band 3:
+											<select onchange="updateBand(2, this.value)" id="band2-label-select">
+											</select>
+										</label>
+
+										<label id="band3-label" class="band_select">Band 4:
+											<select onchange="updateBand(3, this.value)" id="band3-label-select">
+											</select>
+										</label>
+
+										<label id="band4-label" class="band_select">Band 5:
+											<select onchange="updateBand(4, this.value)" id="band4-label-select">
+											</select>
+										</label>
+										<label id="band5-label" class="band_select">Band 6:
+											<select onchange="updateBand(5, this.value)" id="band5-label-select">
+											</select>
+										</label>
+									</div>
+								</div>
+
+							</div>
+							<div class="row aln-center resistor-group" style="height: 3vh;">
+								<div class="col-1" id="resistor_num">0Ω</div>
+								<div class="col-2" id="resistor_ppm" style="display: none;">250ppm/K</div>
+							</div>
+							<div class="row aln-center resistor-group" style="height: 1vh;">
+								<div class="col-4" id="resistor_tol">±20% (0Ω ~ 0Ω)</div>
+							</div>
+						</div>
+					</div>
+			</div>
+		</div>
+
+	</div>
+	</div>
+	</div>
+	<script>
+		const bandIds = ["band0", "band1", "band2", "band3", "band4", "band5"];
+
+		const UNIT = ["", "K", "M", "G"];
+
+		const color_order = ["Black",
+			"Brown",
+			"Red",
+			"Orange",
+			"Yellow",
+			"Green",
+			"Blue",
+			"Violet",
+			"Gray",
+			"White",
+			"Gold",
+			"Silver"];
+
+		const number_colors = {
+			"Black": 0,
+			"Brown": 1,
+			"Red": 2,
+			"Orange": 3,
+			"Yellow": 4,
+			"Green": 5,
+			"Blue": 6,
+			"Violet": 7,
+			"Gray": 8,
+			"White": 9,
+		};
+
+		const mul_color = {
+			"Black": 0,
+			"Brown": 1,
+			"Red": 2,
+			"Orange": 3,
+			"Yellow": 4,
+			"Green": 5,
+			"Blue": 6,
+			"Violet": 7,
+			"Gray": 8,
+			"White": 9,
+			"Gold": -1,
+			"Silver": -2,
+		};
+
+		const tol_color = {
+			"Brown": 1,
+			"Red": 2,
+			"Orange": 3,
+			"Yellow": 4,
+			"Green": 0.5,
+			"Blue": 0.25,
+			"Violet": 0.1,
+			"Gray": 0.05,
+			"Gold": 5,
+			"Silver": 10,
+		};
+
+		const ppm_color = {
+			"Black": 250,
+			"Brown": 100,
+			"Red": 50,
+			"Orange": 15,
+			"Yellow": 25,
+			"Green": 20,
+			"Blue": 10,
+			"Violet": 5,
+			"Gray": 1,
+		};
+
+		const each_band_position = {
+			3: [number_colors, number_colors, mul_color],
+			4: [number_colors, number_colors, mul_color, tol_color],
+			5: [number_colors, number_colors, number_colors, mul_color, tol_color],
+			6: [number_colors, number_colors, number_colors, mul_color, tol_color, ppm_color],
+		};
+
+		var now_select_mode = 6;
+
+		function updateBand(index, color) {
+			const band = document.getElementById(bandIds[index]);
+			band.className = "band";
+			if (color) {
+				band.classList.add(color);
+			}
+
+			updateResistorValue();
+		}
+
+		function updateResistorValue() {
+			var band_position = each_band_position[now_select_mode];
+			var num_list = [];
+			for (let idx = 0; idx < now_select_mode; idx++) {
+				var temp_selected = document.getElementById(`band${idx}-label-select`).value;
+				if (temp_selected) {
+					num_list.push(band_position[idx][temp_selected]);
+				} else {
+					return;
+				}
+			}
+
+			switch (now_select_mode) {
+				case 6:
+					// 6-band resistor calculation
+					var resistance = (num_list[0] * 100 + num_list[1] * 10 + num_list[2] * 1) * Math.pow(10, num_list[3]);
+					var tolerance = num_list[4];
+					var ppm = num_list[5];
+					var [sci_num, unit] = scientific_num(resistance);
+					document.getElementById("resistor_ppm").innerText = `${ppm}ppm/K`;
+					break;
+				case 5:
+					// 5-band resistor calculation
+					var resistance = (num_list[0] * 100 + num_list[1] * 10 + num_list[2] * 1) * Math.pow(10, num_list[3]);
+					var tolerance = num_list[4];
+					var [sci_num, unit] = scientific_num(resistance);
+					break;
+				case 4:
+					// 4-band resistor calculation
+					var resistance = (num_list[0] * 10 + num_list[1] * 1) * Math.pow(10, num_list[2]);
+					var tolerance = num_list[3];
+					var [sci_num, unit] = scientific_num(resistance);
+					break;
+				case 3:
+					// 3-band resistor calculation
+					var resistance = (num_list[0] * 10 + num_list[1]) * Math.pow(10, num_list[2]);
+					var tolerance = 20; // Default tolerance for 3-band resistors
+					var [sci_num, unit] = scientific_num(resistance);
+					break;
+			}
+			document.getElementById("resistor_num").innerText = `${sci_num}${unit}Ω`;
+			var upper = (sci_num * (100 + tolerance) / 100).toFixed(2);
+			var lower = (sci_num * (100 - tolerance) / 100).toFixed(2);
+			document.getElementById("resistor_tol").innerText = `±${tolerance}% (${lower}Ω ~ ${upper}Ω)`;
+		}
+
+		function scientific_num(num) {
+			var unit_idx = 0;
+			while (num >= 1000) {
+				num /= 1000;
+				unit_idx++;
+			}
+			return [num, UNIT[unit_idx]];
+		}
+
+		function changeBands(numBands, activeId) {
+			now_select_mode = numBands;
+
+			const bandElements = document.querySelectorAll(".band_select");
+			bandElements.forEach((band, index) => {
+				if (index < numBands) {
+					band.style.display = "block";
+				} else {
+					band.style.display = "none";
+				}
+			});
+
+			// Reset all buttons
+			document.querySelectorAll(".button").forEach(button => {
+				button.classList.remove("primary");
+			});
+
+			// Highlight the active button
+			document.getElementById(activeId).classList.add("primary");
+
+			document.querySelectorAll("option").forEach(option => {
+				option.remove();
+			});
+
+			var band_position = each_band_position[numBands];
+			// Reset all selected
+			document.querySelectorAll("select").forEach((this_band, idx) => {
+				this_band.appendChild(new Option("None", ""));
+				var this_position = band_position[idx];
+				for (let color of color_order) {
+					if (this_position && this_position.hasOwnProperty(color)) {
+						this_band.appendChild(new Option(color, color));
+					}
+				}
+				this_band.value = "";
+			});
+
+			// Reset all bands color
+			for (let bandId of bandIds) {
+				const band = document.getElementById(bandId);
+				band.className = "band";
+			}
+
+			if (numBands == 6) {
+				document.getElementById("resistor_ppm").style.display = "block";
+			} else {
+				document.getElementById("resistor_ppm").style.display = "none";
+			}
+		}
+
+		// after html init
+		document.addEventListener("DOMContentLoaded", function () {
+			changeBands(6, "6band");
+		});
+		document.getElementById("resistor_num").innerText = `0Ω`;
+	</script>
+</body>
+
+</html>

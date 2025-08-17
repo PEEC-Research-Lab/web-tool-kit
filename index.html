@@ -1,0 +1,193 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>PEEC Toolkit</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main Viewport -->
+				<iframe id="content-frame" style="width:100%; height: 100vh; border: none;"></iframe>
+
+				<!-- Sidebar -->
+					<div id="sidebar" style="height: 100vh; border: none;">
+						<div class="inner">
+
+							<!-- Search -->
+								<section id="search" class="alt">
+									<form method="post" action="#">
+										<input type="text" name="query" id="query" placeholder="Search" />
+									</form>
+								</section>
+
+							<!-- Menu -->
+								<nav id="menu">
+									<header class="major">
+										<h2>Menu</h2>
+									</header>
+									<ul>
+										<li><a href="#" onclick="loadPage('home.html');">Homepage</a></li>
+										<li><a href="#" onclick="loadPage('generic_information.html');">Generic</a></li>
+										<li>
+											<span class="opener">Calculators</span>
+											<ul>
+												<li><a href="#" onclick="loadPage('calculator_wire_thickness.html');">PCB Trace Requirements</a></li>
+                                                <li><a href="#" onclick="loadPage('calculator_wire_resistance.html');">Resistance of a common wire</a></li>
+                                                <li><a href="#" onclick="loadPage('calculator_resistor_code.html');">Code of a resistor</a></li>
+                                                <li><a href="#" onclick="loadPage('calculator_capacitor_code.html');">Code of a capacitor</a></li>
+                                                <li><a href="#" onclick="loadPage('calculator_resistor_color_code.html');">Color of a resistor</a></li>
+												<li><a href="#">Coming Soon</a></li>
+											</ul>
+										</li>
+										<li>
+											<span class="opener">Guides</span>
+											<ul>
+												<li><a href="#" onclick="loadPage('PCB_Assembly_Guide.html');">General Information</a></li>
+												<li><a href="#" onclick="loadPage('PCB_Assembly_Guide.html');">PCB Ordering and Assembly</a></li>
+												<li><a href="#">Coming Soon</a></li>
+											</ul>
+										</li>
+                                        <li><a href="#" onclick="loadPage('join_peec.html');">Join Us</a></li>
+									</ul>
+								</nav>
+
+							<!-- Section -->
+								<section>
+									<header class="major">
+										<h2>Some Highlights</h2>
+									</header>
+									<div class="mini-posts">
+										<article>
+											<a href="#" class="image"><img src="images/events/compel_photo.jpg" alt="" /></a>
+											<p>2025 IEEE COMPEL conference photo, Rupeng Duan (PhD), Xiaofan Cui (Prof), and Guanyu Qian(PhD).</p>
+										</article>
+										<article>
+											<a href="#" class="image"><img src="images/people/rupeng_nhat.jpg" alt="" /></a>
+											<p>Rupeng Duan (PhD) and Nhat Nguyen (MS)</p>
+										</article>
+										<article>
+											<a href="#" class="image"><img src="images/people/xiaosun.jpg" alt="" /></a>
+											<p>Xiao(MS)</p>
+										</article>
+									</div>
+									<ul class="actions">
+										<li><a href="#" class="button">More</a></li>
+									</ul>
+								</section>
+
+							<!-- Section -->
+								<section>
+									<header class="major">
+										<h2>Get in touch</h2>
+									</header>
+									<p>Office: 58-113 Engineering IV, 420 Westwood Plaza </p>
+									<ul class="contact">
+										<li class="icon solid fa-envelope"><a href="mailto:cuixf@seas.ucla.edu">cuixf@seas.ucla.edu</a>(preferred)</li>
+										<li class="icon solid fa-envelope"><a href="mailto:cuixf@umich.edu">cuixf@umich.edu</a></li>
+										<li class="icon solid fa-phone">(000)000-0000</li>
+										<li class="icon solid fa-home">420 Westwood Plaza,<br />58-113 Engineering IV<br />Los Angeles, CA 90095</li>
+									</ul>
+                                    <ul class="actions">
+										<li><a href="#" class="button" onclick="loadPage('join_peec.html');">Join</a></li>
+									</ul>
+								</section>
+
+							<!-- Footer -->
+								<footer id="footer">
+									<p class="copyright">&copy; Untitled. All rights reserved. Demo Images: <a href="https://unsplash.com">Unsplash</a>. Design: <a href="https://html5up.net">HTML5 UP</a>.</p>
+								</footer>
+
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+			<script src="assets/js/jquery.min.js"></script>
+    		<!-- Inline script to handle iframe and menu interactions -->
+			<script>
+				$(document).ready(function() {
+				  var $iframe = $('#content-frame');
+				  var defaultPage = 'home.html';
+			  
+				  // Function to load a page into the iframe and update the URL
+				  function loadPage(page) {
+					console.log('Loading page:', page);
+					// Load the page into the iframe
+					$iframe.attr('src', page);
+			  
+					// Update the browser's history and URL
+					var newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?page=' + encodeURIComponent(page);
+					window.history.pushState({ page: page }, '', newUrl);
+				  }
+
+				  function updateURL(page){
+					// Update the URL without adding a new history entry
+					var newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?page=' + encodeURIComponent(page);
+					window.history.replaceState({ page: page }, '', newUrl);
+				  }
+			  
+				  // Expose the loadPage and updateURL function to the global scope
+				  window.loadPage = loadPage;
+				  window.updateURL = updateURL;
+			  
+				  // Function to load the page from the URL or history state
+				  function loadPageFromState(state) {
+					var page;
+			  
+					if (state && state.page) {
+					  console.log('Loading page from state:', state.page);
+					  // Use the page from the history state
+					  page = state.page;
+					} else {
+					  console.log('No state provided, loading from URL parameter');
+					  // Fallback to the URL parameter or default page
+					  var urlParams = new URLSearchParams(window.location.search);
+					  page = urlParams.get('page') || defaultPage;
+					}
+			  
+					// Load the page into the iframe
+					$iframe.attr('src', page);
+			  
+					// Update the URL without adding a new history entry
+					var newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?page=' + encodeURIComponent(page);
+					window.history.replaceState({ page: page }, '', newUrl);
+				  }
+			  
+				  // On initial page load, set the initial history state
+				  var initialPage = (new URLSearchParams(window.location.search)).get('page') || defaultPage;
+				  window.history.replaceState({ page: initialPage }, '', window.location.href);
+				  loadPageFromState({ page: initialPage });
+			  
+				  // Handle browser back and forward navigation
+				  window.addEventListener('popstate', function(event) {
+					console.log('popstate event:', event.state);
+					loadPageFromState(event.state);
+				  });
+			  
+				  // Handle menu link clicks
+				  $('#menu').on('click', 'a', function(event) {
+					return;
+					event.preventDefault();
+					var page = $(this).attr('href');
+					loadPage(page);
+				  });
+				});
+			  </script>			  
+	</body>
+</html>

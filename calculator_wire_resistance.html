@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Wire Resistance Calculator</title>
+    <script>
+        const resistivityTable = {
+            "silver": 15.9,
+            "copper": 16.8,
+            "aluminium": 26.5,
+            "tungsten": 56,
+            "iron": 97.1,
+            "platinum": 106,
+            "manganin": 482,
+            "lead": 220,
+            "mercury": 980,
+            "nichrome": 1000,
+            "constantan": 490,
+            "custom": null
+        };
+
+        const siPrefixes = [
+            { symbol: 'T', factor: 1e12 },
+            { symbol: 'G', factor: 1e9 },
+            { symbol: 'M', factor: 1e6 },
+            { symbol: 'k', factor: 1e3 },
+            { symbol: '', factor: 1 },
+            { symbol: 'm', factor: 1e-3 },
+            { symbol: 'u', factor: 1e-6 },
+            { symbol: 'n', factor: 1e-9 },
+            { symbol: 'p', factor: 1e-12 }
+        ];
+
+        let lastResistanceOhm = null;
+        let lastACResistanceOhm = null;
+
+        function convertLength(val, fromUnit, toUnit) {
+            const toMM = {
+                mm: v => v,
+                m: v => v * 1000,
+                inch: v => v * 25.4,
+                mil: v => v * 0.0254
+            };
+            const fromMM = {
+                mm: v => v,
+                m: v => v / 1000,
+                inch: v => v / 25.4,
+                mil: v => v / 0.0254
+            };
+            return fromMM[toUnit](toMM[fromUnit](parseFloat(val)));
+        }
+
+        function convertArea(val, fromUnit, toUnit) {
+            val = parseFloat(val);
+            if (isNaN(val)) return 0;
+            if (fromUnit === toUnit) return val;
+            return fromUnit === "mm2" ? val * 1e-6 : val * 1e6;
+        }
+
+        function awgStrToNumeric(str) {
+            str = str.trim();
+            return /^0+$/.test(str) ? 1 - str.length : Math.round(parseFloat(str));
+        }
+
+        function numericToAwgStr(num) {
+            return num >= 0 ? num.toString() : "0".repeat(1 - num);
+        }
+
+        function awgToDiameterMM(awgNum) {
+            return 0.127 * Math.pow(92, (36 - awgNum) / 39);
+        }
+
+        function diameterMMToAWG(diaMM) {
+            return Math.round(36 - 39 * Math.log10(diaMM / 0.127) / Math.log10(92));
+        }
+
+        function updateFieldOnUnitChange(fieldId, unitSelectId, converter, defaultUnit) {
+            const field = document.getElementById(fieldId);
+            const unitSelect = document.getElementById(unitSelectId);
+            const prevUnit = unitSelect.dataset.prev || defaultUnit;
+            const newUnit = unitSelect.value;
+            if (!field.value || isNaN(field.value)) return;
+            const newVal = converter(field.value, prevUnit, newUnit);
+            field.value = newVal.toFixed(10);
+            unitSelect.dataset.prev = newUnit;
+
+            if (fieldId === "diameter") {
+                document.getElementById('area').value = (Math.PI * Math.pow(parseFloat(field.value) / 2000, 2)).toExponential(10);
+            }
+        }
+
+        function formatWithBestSI(value) {
+            for (let p of siPrefixes) {
+                const scaled = value / p.factor;
+                if (Math.abs(scaled) >= 1 && Math.abs(scaled) < 1000) {
+                    return { value: scaled.toFixed(6), prefix: p.symbol };
+                }
+            }
+            return { value: value.toExponential(3), prefix: '' };
+        }
+
+        function calculateResistance() {
+            const length = parseFloat(document.getElementById("length").value);
+            const lengthUnit = document.getElementById("lengthUnit").value;
+            const lengthM = convertLength(length, lengthUnit, "m");
+
+            const areaVal = parseFloat(document.getElementById("area").value);
+            const areaUnit = document.getElementById("areaUnit").value;
+            const areaM2 = convertArea(areaVal, areaUnit, "m2");
+
+            const material = document.getElementById("material").value;
+            let resistivity = material === "custom" ? parseFloat(document.getElementById("resistivity").value) : resistivityTable[material];
+            if (isNaN(resistivity)) return alert("Please provide a valid resistivity.");
+            if (isNaN(lengthM) || isNaN(areaM2) || areaM2 <= 0) return alert("Invalid input values for length or area.");
+
+            const resistance = (resistivity * 1e-9) * lengthM / areaM2;
+            lastResistanceOhm = resistance;
+
+            const unitSelectDCR = document.getElementById("resistanceUnit");
+            if (unitSelectDCR.value === "auto") {
+                const best = formatWithBestSI(resistance);
+                document.getElementById("resistance").value = best.value;
+                unitSelectDCR.value = best.prefix;
+            } else {
+                const prefixEntry = siPrefixes.find(p => p.symbol === unitSelectDCR.value);
+                const displayValue = resistance / prefixEntry.factor;
+                document.getElementById("resistance").value = displayValue.toFixed(6);
+            }
+
+            // ACR ok? ok!
+            const freq = parseFloat(document.getElementById("frequency").value);
+            const freqUnit = document.getElementById("frequencyUnit").value;
+            let freqHz = freq * (freqUnit === "Hz" ? 1 : freqUnit === "kHz" ? 1e3 : freqUnit === "MHz" ? 1e6 : 1e9);
+            if (isNaN(freqHz) || freqHz <= 0) {
+                document.getElementById("acr").value = "--";
+                return;
+            }
+
+            // Compute skin depth
+            const mu0 = 4 * Math.PI * 1e-7; // Permeability of free space
+            const rho = resistivity * 1e-9; // Resistivity in ohm-m
+            const omega = 2 * Math.PI * freqHz;
+            const delta = Math.sqrt(2 * rho / (omega * mu0)); // Skin depth in meters
+
+            const diameterM = convertLength(document.getElementById("diameter").value, document.getElementById("diameterUnit").value, "m");
+            const radius = diameterM / 2;
+
+            let r_ac;
+            if (radius <= delta) {
+                r_ac = resistance; // Low frequency, same as DC
+            } else {
+                // Surface area of cylindrical shell (thin annular): A = pi * D * delta
+                let effectiveArea = Math.PI * diameterM * delta;
+                r_ac = rho * lengthM / effectiveArea;
+            }
+            const unitSelectACR = document.getElementById("acrUnit");
+            if (unitSelectACR.value === "auto") {
+                const best = formatWithBestSI(r_ac);
+                document.getElementById("acr").value = best.value;
+                unitSelectACR.value = best.prefix;
+            } else {
+                const prefixEntry = siPrefixes.find(p => p.symbol === unitSelectACR.value);
+                const displayValue = r_ac / prefixEntry.factor;
+                document.getElementById("acr").value = displayValue.toFixed(6);
+            }
+
+            // Always show DCR
+            lastResistanceOhm = resistance;
+            lastACResistanceOhm = r_ac;
+            // Continue original logic for displaying DCR...
+
+            // Adjust result labels to make clear DCR is for DC, ACR is for AC at given frequency
+        }
+
+        function onResistanceUnitChange() {
+            if (lastResistanceOhm === null) return;
+            const unit = document.getElementById("resistanceUnit").value;
+            if (unit === "auto") {
+                const best = formatWithBestSI(lastResistanceOhm);
+                document.getElementById("resistance").value = best.value;
+                document.getElementById("resistanceUnit").value = best.prefix;
+            } else {
+                const prefixEntry = siPrefixes.find(p => p.symbol === unit);
+                const displayValue = lastResistanceOhm / prefixEntry.factor;
+                document.getElementById("resistance").value = displayValue.toFixed(6);
+            }
+        }
+
+        function onACResistanceUnitChange() {
+            if (lastACResistanceOhm === null) return;
+            const unit = document.getElementById("acrUnit").value;
+            if (unit === "auto") {
+                const best = formatWithBestSI(lastACResistanceOhm);
+                document.getElementById("acr").value = best.value;
+                document.getElementById("acrUnit").value = best.prefix;
+            } else {
+                const prefixEntry = siPrefixes.find(p => p.symbol === unit);
+                const displayValue = lastACResistanceOhm / prefixEntry.factor;
+                document.getElementById("acr").value = displayValue.toFixed(6);
+            }
+        }
+    </script>
+    <script>
+        var path = window.location.pathname;
+        var page = path.split("/").pop();
+        parent.updateURL(page);
+    </script>
+    <link rel="stylesheet" href="assets/css/salty.css" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+</head>
+
+<body class="is-preload">
+    <!-- Wrapper -->
+    <div id="wrapper">
+
+        <!-- Main -->
+        <div id="main">
+            <div class="inner">
+                <!-- Header -->
+                <header id="header">
+                    <a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+                    <ul class="icons">
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                    </ul>
+                </header>
+                <div class="container">
+                    <h1>Wire Resistance Calculator</h1>
+
+                    <div class="form-group">
+                        <label for="awg">AWG:</label>
+                        <input type="text" id="awg"
+                            onchange="document.getElementById('diameter').value = awgToDiameterMM(awgStrToNumeric(this.value)).toFixed(10); document.getElementById('area').value = (Math.PI * Math.pow(parseFloat(document.getElementById('diameter').value)/2000, 2)).toExponential(10);">
+                        <select disabled>
+                            <option>AWG</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="diameter">Diameter:</label>
+                        <input type="text" id="diameter"
+                            onchange="document.getElementById('area').value = (Math.PI * Math.pow(parseFloat(this.value)/2000, 2)).toExponential(10);">
+                        <select id="diameterUnit"
+                            onchange="updateFieldOnUnitChange('diameter', 'diameterUnit', convertLength, 'mm')">
+                            <option value="mm" selected>mm</option>
+                            <option value="inch">inch</option>
+                            <option value="mil">mil</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="area">Cross-sectional Area:</label>
+                        <input type="text" id="area">
+                        <select id="areaUnit" onchange="updateFieldOnUnitChange('area', 'areaUnit', convertArea, 'm2')">
+                            <option value="m2" selected>m²</option>
+                            <option value="mm2">mm²</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="length">Wire Length:</label>
+                        <input type="text" id="length" value="1000">
+                        <select id="lengthUnit"
+                            onchange="updateFieldOnUnitChange('length', 'lengthUnit', convertLength, 'mm')">
+                            <option value="mm" selected>mm</option>
+                            <option value="m">m</option>
+                            <option value="inch">inch</option>
+                            <option value="mil">mil</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="material">Material:</label>
+                        <select id="material"
+                            onchange="document.getElementById('resistivity').value = this.value === 'custom' ? '' : resistivityTable[this.value]; document.getElementById('resistivity').disabled = this.value !== 'custom';">
+                            <option value="copper" selected>Copper</option>
+                            <option value="silver">Silver</option>
+                            <option value="aluminium">Aluminium</option>
+                            <option value="tungsten">Tungsten</option>
+                            <option value="iron">Iron</option>
+                            <option value="platinum">Platinum</option>
+                            <option value="manganin">Manganin</option>
+                            <option value="lead">Lead</option>
+                            <option value="mercury">Mercury</option>
+                            <option value="nichrome">Nichrome</option>
+                            <option value="constantan">Constantan</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resistivity">Resistivity (×10⁻⁹ Ω·m):</label>
+                        <input type="text" id="resistivity" value="16.8" disabled>
+                        <select disabled>
+                            <option>10⁻⁹ Ω·m</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="frequency">Frequency:</label>
+                        <input type="text" id="frequency" value="0">
+                        <select id="frequencyUnit">
+                            <option value="Hz">Hz</option>
+                            <option value="kHz">kHz</option>
+                            <option value="MHz" selected>MHz</option>
+                            <option value="GHz">GHz</option>
+                        </select>
+                    </div>
+
+                    <button onclick="calculateResistance()">Calculate Resistance</button>
+
+                    <div class="results">
+                        <h2>Result</h2>
+                        <div class="form-group">
+                            <label for="resistance">Resistance:</label>
+                            <input type="text" id="resistance" readonly>
+                            <select id="resistanceUnit" onchange="onResistanceUnitChange()">
+                                <option value="auto" selected>Auto</option>
+                                <option value="T">TΩ</option>
+                                <option value="G">GΩ</option>
+                                <option value="M">MΩ</option>
+                                <option value="k">kΩ</option>
+                                <option value="">Ω</option>
+                                <option value="m">mΩ</option>
+                                <option value="u">μΩ</option>
+                                <option value="n">nΩ</option>
+                                <option value="p">pΩ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="acr">AC Resistance:</label>
+                            <input type="text" id="acr" readonly>
+                            <select id="acrUnit" onchange="onACResistanceUnitChange()">
+                                <option value="auto" selected>Auto</option>
+                                <option value="T">TΩ</option>
+                                <option value="G">GΩ</option>
+                                <option value="M">MΩ</option>
+                                <option value="k">kΩ</option>
+                                <option value="">Ω</option>
+                                <option value="m">mΩ</option>
+                                <option value="u">μΩ</option>
+                                <option value="n">nΩ</option>
+                                <option value="p">pΩ</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <!-- Wrapper -->
+            </div>
+
+            <!-- Main -->
+        </div>
+    </div>
+    <!-- Header -->
+</body>
+
+</html>

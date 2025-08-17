@@ -1,0 +1,116 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>PCB Design and Ordering</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+							<header id="header">
+								<a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+								<ul class="icons">
+                                    <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                                </ul>
+							</header>
+
+							<!-- Content -->
+								<section>
+									<header class="main" id="PCB_PAGE_TOP">
+										<h1>PCB Related Guides</h1>
+									</header>
+
+									<span class="image main"><img src="images/pic11.jpg" alt="" /></span>
+
+									<p>This guide contains information regrding PCB designes, Fabrication, and Assemblies</p>
+									<ul>
+										<li>PCB Design Guidelines</li>
+										<li><a href = "#JLCPCB">Ordering From JLCPCB</a></li>
+										<li>ORdering From PCBWay</li>
+									</ul>
+
+									<hr class="major" />
+
+									<h2 id="JLCPCB">Ordering a Board from JLCPCB</h2>
+									<h3>Step 1: Review JLCPCB Capabilities</h3>
+									<p>
+										Before placing an order, visit <a href="https://jlcpcb.com/capabilities/pcb-capabilities">JLCPCB’s PCB capabilities page</a>
+										to understand their manufacturing specifications. JLCPCB offers two distinct sets of rules: one for standard PCBs and another
+										for high-precision PCBs. To optimize costs, it’s advisable to adhere to the standard PCB rules unless your project requires high 
+										precision, which should not be required in your early prototype. Give yourself more space: use large-packaged components as 
+										much as possible in the prototype phase would make debugging and soldering much easier.
+									</p>
+									<h3>Step 2: Qualify for Prototype Prices</h3>
+									<p>
+										JLCPCB offers significantly cheaper prices for PCBs that qualify as prototypes. To meet the prototype criteria 
+										(The exact guidelines are subject to change):
+									</p>
+									<ol>
+										<li>Size: The PCB should not exceed 3900 mil (99 mm) both sides</li>
+										<li>Layers: The design should be limited to 2 layers.</li>
+										<li>Thickness: The PCB should have a thickness of 1.6 mm.</li>
+									</ol>
+									<p>
+										The default values on their website should be fine, but play with them to see how the price changes. 
+										These prototype orders benefit from cost savings because JLCPCB batches multiple small orders together, 
+										reducing manufacturing expenses.
+									</p>
+									<h3>Step 3: Optimize Form Factor for Shipping</h3>
+									<p>
+										You may not need to do this if your PCB qualifies as a prototype, but your order may contain multiple PCBs. 
+										Consider the amount of PCB in one order to reduce shipping costs. Smaller boards that fit within JLCPCB’s 
+										smallest packaging options will incur lower shipping fees, further reducing your overall costs 
+										(from $12 minimum to $1.5 minimum! But $1.5 would also be the slowest shipping option taking more than one week)
+									</p>
+									<h3>Step 4: Component Selection for Assembly</h3>
+									<p>
+										If you opt for JLCPCB’s assembly service, it’s recommended to select components from their 
+										<a href="https://jlcpcb.com/parts/basic_parts">basic parts catalog.</a> Prioritize using basic-parts, 
+										especially for common components like capacitors and resistors, to minimize costs and reduce lead times.
+									</p>
+									<ul>
+										<li>
+											<b>Avoid Uncommon Values</b> Using rare or uncommon component values can increase both cost and procurement time. 
+											Instead, consider using standard values and, if necessary, apply series-parallel techniques to achieve the desired 
+											specifications during the prototype phase.
+										</li>
+									</ul>
+									<p>
+										By following these guidelines, you can effectively manage your PCB manufacturing and assembly costs while ensuring 
+										that your design meets the necessary requirements.
+									</p>
+									<a href = "#"> Back To Top</a>
+								</section>
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+			<script>
+				var path = window.location.pathname;
+				var page = path.split("/").pop();
+				parent.updateURL(page);
+			</script>
+
+	</body>
+</html>
