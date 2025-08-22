@@ -193,9 +193,7 @@
                 });
 
                 input.addEventListener('focusout', function () {
-                    if (!datalist.contains(event.target)) {
-                        options.classList.remove('active');
-                    }
+                    options.classList.remove('active');
                 });
 
                 document.addEventListener('click', function (event) {
@@ -232,9 +230,10 @@
 
                 <!-- Header -->
                 <header id="header">
-                    <a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+                    <a href="#" class="logo" tabindex="-1"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
                     <ul class="icons">
-                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/" class="icon brands fa-github"><span class="label">github</span></a></li>
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/"
+                                class="icon brands fa-github" tabindex="-1"><span class="label">github</span></a></li>
                     </ul>
                 </header>
                 <section>
@@ -257,23 +256,23 @@
                                 <div class="col-6" style="display: flex;">
                                     <div class="custom-datalist" id="custom-num1">
                                         <input type="text" id="num1" placeholder="0" style="display: block;"
-                                            onchange="checkCodeLegal(this.id)" />
-                                        <div id="num1List" class="datalist-options"></div>
+                                            onchange="checkCodeLegal(this.id)" tabindex="1" />
+                                        <div id="num1List" class="datalist-options" tabindex="-1"></div>
                                     </div>
                                     <div class="custom-datalist" id="custom-num2">
                                         <input type="text" id="num2" placeholder="0" style="display: block;"
-                                            onchange="checkCodeLegal(this.id)" />
-                                        <div id="num2List" class="datalist-options"></div>
+                                            onchange="checkCodeLegal(this.id)" tabindex="2" />
+                                        <div id="num2List" class="datalist-options" tabindex="-1"></div>
                                     </div>
                                     <div class="custom-datalist" id="custom-num3">
                                         <input type="text" id="num3" placeholder="0" style="display: block;"
-                                            onchange="checkCodeLegal(this.id)" />
-                                        <div id="num3List" class="datalist-options"></div>
+                                            onchange="checkCodeLegal(this.id)" tabindex="3" />
+                                        <div id="num3List" class="datalist-options" tabindex="-1"></div>
                                     </div>
                                     <div class="custom-datalist" id="custom-num4">
                                         <input type="text" id="num4" placeholder="0" style="display: none;"
-                                            onchange="checkCodeLegal(this.id)" />
-                                        <div id="num4List" class="datalist-options"></div>
+                                            onchange="checkCodeLegal(this.id)" tabindex="4" />
+                                        <div id="num4List" class="datalist-options" tabindex="-1"></div>
                                     </div>
                                 </div>
                             </div>
