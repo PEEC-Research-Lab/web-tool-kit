@@ -120,7 +120,9 @@ button:hover {
 	align-items: center;
 	width: 100%;
 	max-width: 900px;
-	height: 100%;
+	/* Maintain aspect ratio of the resistor body + leads */
+	aspect-ratio: 6 / 1;
+	height: auto;
 	max-height: 150px;
 }
 
@@ -223,8 +225,9 @@ button:hover {
 
 .controls {
 	display: flex;
-	gap: 0.2rem;
+	gap: 0.5rem;
 	justify-content: center;
+	flex-wrap: wrap;
 }
 
 .controls > * > select {
@@ -243,4 +246,132 @@ div.resistor-group {
 #resistor_ppm {
 	position: relative;
 	top: 1vh;
+}
+
+/* Small screens: improve tap targets and layout */
+@media screen and (max-width: 736px) {
+	h1 { font-size: 1.6em; }
+
+	.controls label.band_select {
+		flex: 1 1 calc(50% - 0.5rem);
+		min-width: 160px;
+	}
+
+	.controls > * > select {
+		font-size: 0.95rem;
+	}
+
+	.resistor-container {
+		max-height: 140px;
+	}
+
+	.band {
+		width: 7.5%;
+	}
+
+	#resistor_num, #resistor_ppm, #resistor_tol {
+		text-align: center;
+	}
+}
+
+/* Code calculators: input and output wrapping */
+.code-inputs {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.code-output {
+	display: flex;
+	align-items: center;
+	margin-bottom: 1rem; /* add breathing room from bottom edge of box */
+}
+
+/* Balance left/right spacing for centered rows within .inner (override main.css negative margins) */
+.inner .row.aln-center {
+	margin-left: 0; /* neutralize -1.5em from main.css for centered rows */
+}
+.inner .row.aln-center > * {
+	padding: 0 1.5em; /* symmetric gutters instead of left-only */
+}
+
+/* Ensure extra bottom padding for calculator containers */
+#main > .inner .box.align-center {
+	padding-bottom: 2.5em; /* add more breathing room at the bottom */
+}
+
+.custom-datalist {
+	position: relative;
+}
+
+/* Input group: result + unit as a single control */
+.input-group {
+	display: inline-flex;
+	align-items: stretch;
+	width: 100%;
+}
+
+/* Wider screens: keep tolerance inline and cap width */
+@media screen and (min-width: 737px) {
+	.code-output {
+		gap: 0.5rem; /* spacing between result and tolerance */
+	}
+	.code-output .input-group {
+		width: auto;        /* allow sharing space with tolerance */
+		flex: 1 1 auto;     /* grow/shrink as needed */
+	}
+	.code-output .tolerance-wrap {
+		flex: 0 1 50%;      /* behave like a normal textfield area, max half width */
+		max-width: 50%;
+		margin-left: 0;     /* rely on container gap for spacing */
+	}
+	.code-output .tolerance-wrap input[type="text"] {
+		width: 100%;        /* fill wrapper width */
+	}
+}
+.input-group input[type="text"] {
+	/* Make result input take ~75% */
+	flex: 3 1 75%;
+	min-width: 0; /* allow shrinking within flex container */
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+.input-group select {
+	/* Make units take ~25% */
+	flex: 1 1 25%;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	white-space: nowrap;
+}
+.tolerance-wrap { margin-left: 0.5rem; }
+
+@media screen and (max-width: 736px) {
+	.code-inputs {
+		flex-wrap: nowrap; /* avoid stacking in multiple columns */
+		flex-direction: column; /* 1 per row vertically on small */
+		align-items: stretch;
+	}
+	.code-inputs .custom-datalist {
+		width: 100%;
+	}
+	.code-output {
+		width: 100%;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
+	}
+	.code-output .input-group {
+		width: 100%;
+	}
+	.code-output .input-group input[type="text"] {
+		/* keep 75/25 split; no fixed width on small screens */
+		width: auto;
+	}
+	.code-output .tolerance-wrap {
+		width: 100%;
+		margin-left: 0; /* remove horizontal offset on small screens */
+	}
+	.code-output .tolerance-wrap input[type="text"] {
+		width: 100%; /* fill wrapper for clean edges */
+	}
 }

@@ -86,11 +86,14 @@
             }
             for (let index = 1; index <= 4; index++) {
                 var tempInput = document.getElementById("num" + String(index));
+                var wrapper = document.getElementById("custom-num" + String(index));
                 if (index <= x) {
                     tempInput.style.display = "block";
+                    if (wrapper) wrapper.style.display = "block";
                     checkCodeLegal("num" + String(index));
                 } else {
                     tempInput.style.display = "none";
+                    if (wrapper) wrapper.style.display = "none";
                 }
             }
             updateDataList();
@@ -296,19 +299,19 @@
                         <div class="col-7 col-12-medium align-center box">
                             <h1>Resistor Value Calculator</h1>
                             <div class="row aln-center" style="margin-bottom: 5vh;">
-                                <span class="col-3 button primary digit-selector" id="3digit"
+                                <span class="col-3 col-6-small button primary digit-selector" id="3digit"
                                     onclick="showXDigit(3, this.id)">3
                                     Digit
                                     EIA</span>
-                                <span class="col-3 button digit-selector" id="4digit" onclick="showXDigit(4, this.id)">4
+                                <span class="col-3 col-6-small button digit-selector" id="4digit" onclick="showXDigit(4, this.id)">4
                                     Digit
                                     EIA</span>
-                                <span class="col-3 button digit-selector" id="eia96"
+                                <span class="col-3 col-6-small button digit-selector" id="eia96"
                                     onclick="showXDigit(3, this.id)">EIA-96</span>
                             </div>
 
-                            <div class="row aln-center" style=" height: 5vh;">
-                                <div class="col-6" style="display: flex;">
+                            <div class="row aln-center">
+                                <div class="col-6 col-12-small code-inputs">
                                     <div class="custom-datalist" id="custom-num1">
                                         <input type="text" id="num1" placeholder="0" style="display: block;"
                                             onchange="checkCodeLegal(this.id)" tabindex="1" />
@@ -331,20 +334,18 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row aln-center" style=" height: 5vh;">
+                            <div class="row aln-center">
                                 <div class="col-1">
                                     <h2 style="text-align: center;">
                                         ||
                                     </h2>
                                 </div>
                             </div>
-                            <div class="row aln-center" style=" height: 5vh;">
-                                <div class="col-5" style="display: flex;">
-                                    <div class="col-4">
+                            <div class="row aln-center">
+                                <div class="col-5 col-12-small code-output">
+                                    <div class="input-group">
                                         <input type="text" id="resistance_num" placeholder="0"
                                             onchange="convertResistorToCode()" />
-                                    </div>
-                                    <div class="col-1">
                                         <select id="resistorUnit" style="font-weight: bolder;"
                                             onchange="convertLastTime()">
                                             <option value="T">TΩ</option>
