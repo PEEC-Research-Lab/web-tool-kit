@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Core Calculation</title>
+    <link rel="stylesheet" href="assets/css/salty.css" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+    <script>
+        // Constants
+        const rho_cu = 1.724E-6;
+        const mu_0 = 4 * Math.PI * 10 ** (-7);
+
+        // Helper functions
+        function coreRequiredKg(B_max, inductance, I_max, resistance, k_u) {
+            const k_g = rho_cu * Math.pow(inductance, 2) * Math.pow(I_max, 2) / (Math.pow(B_max, 2) * resistance * k_u);
+            return k_g * 1E8;
+        }
+
+        function airGapLength(B_max, inductance, I_max, core_area) {
+            const l_g = mu_0 * inductance * Math.pow(I_max, 2) / (Math.pow(B_max, 2) * core_area);
+            return l_g * 1E4; // convert to cm
+        }
+
+        function turns(B_max, inductance, I_max, core_area) {
+            const n = inductance * I_max / (B_max * core_area) * 1E4;
+            return n;
+        }
+
+        function maximumWireArea(wiring_area, k_u, num_turns) {
+            return wiring_area * k_u / num_turns;
+        }
+
+        function wireResistance(wire_area, mean_wire_length_per_turn, num_turns) {
+            return mean_wire_length_per_turn * rho_cu * num_turns / wire_area;
+        }
+
+        function onCalculate() {
+            const B_max = parseFloat(document.getElementById('B_max').value);
+            const R_max = parseFloat(document.getElementById('R_max').value);
+            const k_u = parseFloat(document.getElementById('k_u').value);
+            const L = parseFloat(document.getElementById('L').value);
+            const I_max = parseFloat(document.getElementById('I_max').value);
+            const k_g_selected = parseFloat(document.getElementById('k_g_selected').value);
+            const core_area = parseFloat(document.getElementById('core_area').value);
+            const wiring_area = parseFloat(document.getElementById('wiring_area').value);
+            const mean_length_per_turn = parseFloat(document.getElementById('mean_length_per_turn').value);
+            const wire_area = parseFloat(document.getElementById('wire_area').value);
+
+            const core_min_kg = coreRequiredKg(B_max, L, I_max, R_max, k_u).toFixed(4);
+            const air_gap = airGapLength(B_max, L, I_max, core_area).toFixed(4);
+            const num_turns = turns(B_max, L, I_max, core_area).toFixed(4);
+            const max_wire_area = maximumWireArea(wiring_area, k_u, num_turns).toFixed(4);
+            const result_resistance = wireResistance(wire_area, mean_length_per_turn, num_turns).toFixed(4);
+
+            document.getElementById('core_min_kg').value = core_min_kg;
+            document.getElementById('air_gap').value = air_gap;
+            document.getElementById('num_turns').value = num_turns;
+            document.getElementById('max_wire_area').value = max_wire_area;
+            document.getElementById('result_resistance').value = result_resistance;
+
+            const resultMessage = core_min_kg > k_g_selected ?
+                "The selected core might not work because of the small core k_g" :
+                "Core k_g is indeed larger than the minimum calculated";
+
+            document.getElementById('resultMessage').innerText = resultMessage;
+        }
+    </script>
+</head>
+
+<body class="is-preload">
+    <!-- Wrapper -->
+    <div id="wrapper">
+
+        <!-- Main -->
+        <div id="main">
+            <div class="inner">
+
+                <header id="header">
+                    <a href="#" class="logo"><strong>UCLA PEEC</strong> Toolbox and Guides</a>
+                    <ul class="icons">
+                        <li><a target="_blank" href="https://github.com/PEEC-Research-Lab/"
+                                class="icon brands fa-github"><span class="label">github</span></a></li>
+                    </ul>
+                </header>
+                <section>
+                <div class="container">
+                    <h2>Inductor Core Calculation</h2>
+                    <div class="form-group">
+                        <label for="B_max">B_max to handle:</label>
+                        <input type="text" id="B_max" value="0.225">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>T</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="R_max">R_max required:</label>
+                        <input type="text" id="R_max" value="0.075">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>&omega;</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="k_u">k_u:</label>
+                        <input type="text" id="k_u" value="0.5">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>-</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="L">Inductance:</label>
+                        <input type="text" id="L" value="0.00019">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>H</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="I_max">I_max:</label>
+                        <input type="text" id="I_max" value="3.3">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>A</option>
+                        </select>
+                    </div>
+                    <h3>Parameters for Chosen Core and Wire</h3>
+                    <div class="form-group">
+                        <label for="k_g_selected">k_g_selected:</label>
+                        <input type="text" id="k_g_selected" value="0.384">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>cm&#8309;</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="core_area">Core Area:</label>
+                        <input type="text" id="core_area" value="7.46">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>cm&sup2;</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wiring_area">Wiring Area:</label>
+                        <input type="text" id="wiring_area" value="7.46">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>cm&sup2;</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mean_length_per_turn">Mean Wire Length / Turn:</label>
+                        <input type="text" id="mean_length_per_turn" value="6.71">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>cm</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wire_area">A_wire:</label>
+                        <input type="text" id="wire_area" value="0.3972">
+                        <select id="unitPlaceHolder" disabled>
+                            <option>cm&sup2;</option>
+                        </select>
+                    </div>
+                    <button onclick="onCalculate()">Calculate</button>
+                    <div class="results">
+                        <div class="form-group">
+                            <label for="core_min_kg">Core min k_g:</label>
+                            <input type="text" id="core_min_kg" readonly>
+                            <select id="unitPlaceHolder" disabled>
+                                <option>cm&#8309;</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="air_gap">Air Gap Length:</label>
+                            <input type="text" id="air_gap" readonly>
+                            <select id="unitPlaceHolder" disabled>
+                                <option>cm</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="num_turns">Number of Turns:</label>
+                            <input type="text" id="num_turns" readonly>
+                            <select id="unitPlaceHolder" disabled>
+                                <option>turns</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="max_wire_area">Maximum Wire Area:</label>
+                            <input type="text" id="max_wire_area" readonly>
+                            <select id="unitPlaceHolder" disabled>
+                                <option>cm&sup2;</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="result_resistance">Resulted Resistance:</label>
+                            <input type="text" id="result_resistance" readonly>
+                            <select id="unitPlaceHolder" disabled>
+                                <option>&omega;</option>
+                            </select>
+                        </div>
+                        <p id="resultMessage"></p>
+                    </div>
+                </div>
+            </section>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
