@@ -1,0 +1,1208 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaTeX Calculator (Align blocks + Matrix Powers + SVG)</title>
+<style>
+  :root{--fg:#1f2328;--muted:#57606a;--ok:#0a7a40;--err:#b00020}
+  body{font:16px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);margin:32px;max-width:980px}
+  h1{font-size:22px;margin:0 0 12px}
+  textarea{width:100%;min-height:180px;font:15px ui-monospace,Menlo,Consolas,monospace;padding:10px;border:1px solid #e2e5e9;border-radius:12px;tab-size:2}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pill{font-size:12px;border:1px solid #e2e5e9;border-radius:999px;padding:3px 10px;color:var(--muted)}
+  #error{color:var(--err);min-height:20px;margin-top:6px;white-space:pre-wrap}
+  #preview,#evaluated{border:1px dashed #e2e5e9;border-radius:12px;padding:12px;min-height:56px;margin-top:10px;overflow:auto}
+  #result{color:var(--ok);font-weight:700;margin-top:6px}
+  button{padding:8px 12px;border:1px solid #d0d7de;border-radius:10px;background:#fff;cursor:pointer}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  #latexOut{font:13px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);white-space:pre-wrap;margin-top:8px}
+  .loading{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;margin-top:6px}
+  .spinner{width:16px;height:16px;border:2px solid #e2e5e9;border-top:2px solid var(--muted);border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+  /* Tiles */
+  .tiles{margin-top:20px;display:flex;flex-direction:column;gap:14px}
+  .tile{border:1px solid #e2e5e9;border-radius:12px;padding:12px}
+  .tile-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--muted);font-size:13px}
+  .tile-body{display:flex;flex-wrap:wrap;gap:12px}
+  .tile-section{flex:1 1 320px;border:1px dashed #e2e5e9;border-radius:10px;padding:10px}
+  .tile-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .tile-pre{font:12px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);white-space:pre-wrap;background:#fafbfc;border:1px solid #e2e5e9;border-radius:8px;padding:8px;margin-top:6px;display:none}
+  /* Tile buttons/links */
+  .tile-actions a, .tile-actions button{padding:6px 10px;border:1px solid #d0d7de;border-radius:8px;background:#fff;color:var(--fg);text-decoration:none;cursor:pointer;font-size:13px}
+  .tile-actions a:hover, .tile-actions button:hover{background:#f6f8fa}
+  .tile-close{border:none;background:transparent;color:var(--muted);font-size:18px;line-height:1;width:28px;height:28px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .tile-close:hover{background:#f2f4f7;color:#24292f}
+
+  /* Mobile tweaks */
+  @media (max-width: 640px){
+    body{margin:16px}
+    textarea{min-height:140px;padding:8px}
+    .row{gap:6px}
+    .tile{padding:10px}
+    .tile-section{flex:1 1 100%;}
+    .tile-actions{gap:6px}
+    .tile-actions a, .tile-actions button{flex:1 1 auto;text-align:center}
+    #preview,#evaluated{min-height:48px;padding:10px}
+    button{padding:8px 10px}
+  }
+
+  /* Quickbar */
+  .quickbar{margin:8px 0 4px}
+  .qb-toggle{padding:6px 10px;border:1px solid #d0d7de;border-radius:8px;background:#fff;cursor:pointer}
+  .qb-keys{display:none;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .qb-btn{padding:6px 8px;border:1px solid #d0d7de;border-radius:8px;background:#fff;cursor:pointer;font-size:13px}
+  .qb-hint{color:var(--muted);font-size:12px;margin-top:6px}
+</style>
+
+<h1>LaTeX Calculator → SVG</h1>
+<div class="row">
+  <span class="pill">Type LaTeX (no $…$ needed)</span>
+  <span class="pill">Shift+Enter: manual refresh (optional)</span>
+  <span class="pill">Tab inserts spaces</span>
+</div>
+
+<textarea id="input" placeholder="Examples:
+13\pi + 1
+\begin{bmatrix}1&2\\3&4\end{bmatrix}^{-1}
+\begin{bmatrix}1&2\\3&4\end{bmatrix}\times\begin{bmatrix}5&6\\7&8\end{bmatrix}
+\begin{bmatrix}1&2\\3&4\end{bmatrix}^2
+[[1,2],[3,4]] * [[5,6],[7,8]]
+\begin{align*}
+y &= ax+b \\
+f(x) &= x^2
+\end{align*}"></textarea>
+
+<!-- Quick LaTeX keys (mobile-friendly) -->
+<div id="quickbar" class="quickbar">
+  <button type="button" class="qb-toggle" id="quickbarToggle">Quick keys</button>
+  <div class="qb-keys" id="quickbarKeys">
+    <button type="button" class="qb-btn" data-snippet="\\frac{__CURSOR__}{}">frac</button>
+    <button type="button" class="qb-btn" data-snippet="x^{__CURSOR__}">x^n</button>
+    <button type="button" class="qb-btn" data-snippet="x_{__CURSOR__}">x_n</button>
+    <button type="button" class="qb-btn" data-snippet="\\sqrt{__CURSOR__}">√</button>
+    <button type="button" class="qb-btn" data-snippet="\\pi">π</button>
+    <button type="button" class="qb-btn" data-snippet="\\infty">∞</button>
+    <button type="button" class="qb-btn" data-snippet="\\alpha">α</button>
+    <button type="button" class="qb-btn" data-snippet="\\beta">β</button>
+    <button type="button" class="qb-btn" data-snippet="\\gamma">γ</button>
+    <button type="button" class="qb-btn" data-snippet="\\times">×</button>
+    <button type="button" class="qb-btn" data-snippet="( __CURSOR__ )">( )</button>
+    <button type="button" class="qb-btn" data-snippet="[ __CURSOR__ ]">[ ]</button>
+    <button type="button" class="qb-btn" data-snippet="\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}">bmatrix</button>
+    <button type="button" class="qb-btn" data-snippet="\\begin{align*}\n__CURSOR__ \\\\ \n\\end{align*}">align</button>
+  </div>
+  
+  <div class="qb-hint">Tip: Tap a key to insert at the cursor.</div>
+</div>
+
+<div id="error"></div>
+<div id="loading" class="loading" style="display:none">
+  <div class="spinner"></div>
+  <span>Computing...</span>
+</div>
+
+<div id="preview" title="Typeset input"></div>
+<div id="result"></div>
+<div id="evaluated" title="Evaluated LaTeX (or input as-is)"></div>
+
+<div class="row" style="margin-top:10px">
+  <button id="evalBtn">Evaluate → Add to History</button>
+  <button id="downloadInputBtn" disabled>Download Input SVG</button>
+  <button id="downloadBtn" disabled>Download Evaluated SVG</button>
+  <button id="copyLatexBtn">Copy Evaluated LaTeX</button>
+  <span id="copied" class="pill" style="display:none">Copied!</span>
+</div>
+<pre id="latexOut"></pre>
+<div style="margin-top:16px;padding:12px;border:1px solid #e2e5e9;border-radius:10px;background:#fafbfc;color:var(--muted);font-size:13px;">
+  <strong>Note:</strong> Numeric evaluations are approximate and may not be 100% accurate for complex equations. For critical applications, verify results independently.
+</div>
+<div id="history" class="tiles"></div>
+
+
+<!-- MathJax v3 (SVG), enable ams for align/matrix environments -->
+<script>
+  window.MathJax = {
+    tex: { packages: {'[+]': ['ams']} },
+    svg: { fontCache: 'none' }  // embed glyphs → portable SVG
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<!-- @cortex-js/compute-engine (LaTeX parse + numeric) -->
+<script defer src="https://cdn.jsdelivr.net/npm/@cortex-js/compute-engine"></script>
+
+<script>
+const $ = s => document.querySelector(s);
+const input = $('#input'), preview = $('#preview'), evaluated = $('#evaluated');
+const error = $('#error'), result = $('#result'), latexOut = $('#latexOut');
+const loading = $('#loading');
+const dlBtn = $('#downloadBtn'), dlInputBtn = $('#downloadInputBtn');
+const copyBtn = $('#copyLatexBtn'), copied = $('#copied');
+// Quick insert toolbar (created on load)
+let quickBar;
+
+let ce;               // Compute Engine instance
+let lastEvalLatex=''; // evaluated LaTeX string
+let lastSVG=null;     // MathJax-generated SVG node
+let lastPreviewSVG=null; // MathJax-generated SVG for input preview
+let lastInputText='';     // raw input latex
+
+/* ---------- Boot ---------- */
+function mjReady(){
+  return new Promise(r=>{
+    if (window.MathJax?.tex2svg) r();
+    else document.addEventListener('readystatechange',()=>{ if (document.readyState==='complete') r(); });
+  });
+}
+function ceReady(){ return new Promise(r=>{ (window.ComputeEngine) ? r() : setTimeout(r,0); }); }
+async function ready(){ 
+  await mjReady(); 
+  await ceReady(); 
+  ce = new ComputeEngine.ComputeEngine({
+    numericMode: 'auto',
+    precision: 128  // Set high internal precision
+  });
+}
+
+/* ---------- Responsive SVG helper (shrink to fit, never upscale) ---------- */
+function applyResponsiveSVG(svg){
+  if (!svg) return;
+  if (svg.dataset.naturalWidth) return; // already processed
+  // Compute natural width using an offscreen measurement to avoid container constraints
+  let naturalW = 0;
+  try{
+    const measureHost = document.createElement('div');
+    measureHost.style.cssText = 'position:absolute;left:-99999px;top:-99999px;visibility:hidden;display:block;';
+    const clone = svg.cloneNode(true);
+    // Remove any CSS sizing on clone
+    clone.style.width = '';
+    clone.style.maxWidth = 'none';
+    clone.style.height = '';
+    clone.style.display = 'block';
+    measureHost.appendChild(clone);
+    document.body.appendChild(measureHost);
+    const rect = clone.getBoundingClientRect();
+    naturalW = rect.width;
+    measureHost.remove();
+  }catch{}
+  if (!naturalW || naturalW <= 0){
+    // Fallback: measure in-place as best effort
+    const rect = svg.getBoundingClientRect();
+    naturalW = rect.width || 0;
+    if (!naturalW) return;
+  }
+  svg.dataset.naturalWidth = String(Math.round(naturalW));
+  // Ensure aspect ratio preserved via viewBox
+  if (!svg.getAttribute('viewBox')){
+    try{
+      const box = svg.getBBox();
+      if (box && box.width && box.height){
+        svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+      }
+    }catch{}
+  }
+  // Allow shrinking when container is narrower; never exceed natural width
+  svg.style.width = '100%';
+  svg.style.height = 'auto';
+  svg.style.maxWidth = `${Math.round(naturalW)}px`;
+  svg.style.display = 'block';
+  if (!svg.getAttribute('preserveAspectRatio')) svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+}
+
+/* ---------- Render LaTeX → SVG (no delimiters) ---------- */
+function renderLatexTo(target, latex, display=true){
+  target.innerHTML = '';
+  const node = MathJax.tex2svg(latex, {display});
+  const svg = node.querySelector('svg');
+  if (svg) {
+    svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    svg.setAttribute('xmlns:xlink','http://www.w3.org/1999/xlink');
+  }
+  target.appendChild(node);
+  // Apply responsive behavior only when in DOM (seed/off-DOM callers will handle after append)
+  if (svg && document.body.contains(target)) applyResponsiveSVG(svg);
+  return svg || null;
+}
+
+/* ---------- Tile helpers ---------- */
+function svgToBlobUrl(svg){
+  const clone = svg.cloneNode(true);
+  try{
+    const vb = clone.getAttribute('viewBox')?.split(' ').map(Number);
+    if (vb && vb.length===4){
+      const pad=2; const [x,y,w,h]=vb;
+      clone.setAttribute('viewBox', `${x-pad} ${y-pad} ${w+2*pad} ${h+2*pad}`);
+    }
+  }catch{}
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], {type:'image/svg+xml'});
+  return URL.createObjectURL(blob);
+}
+
+function makeTileCard({inputText, inputSVG, evaluatedLatex, evaluatedSVG}){
+  const history = document.getElementById('history');
+  const tile = document.createElement('div');
+  tile.className = 'tile';
+
+  const header = document.createElement('div');
+  header.className = 'tile-header';
+  const ts = new Date().toLocaleString();
+  const title = document.createElement('span');
+  title.textContent = `Calculation History • ${ts}`;
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'tile-close';
+  closeBtn.setAttribute('aria-label','Delete tile');
+  closeBtn.title = 'Delete';
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', ()=>{
+    tile.remove();
+  });
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'tile-body';
+
+  const exprSec = document.createElement('div');
+  exprSec.className = 'tile-section';
+  exprSec.innerHTML = `<div style="font-weight:600;margin-bottom:6px">Expression</div>`;
+  const exprHolder = document.createElement('div');
+  if (inputSVG) {
+    const c = inputSVG.cloneNode(true);
+    exprHolder.appendChild(c);
+    // Ensure responsiveness after append
+    applyResponsiveSVG(c);
+  }
+  const exprToggle = document.createElement('button');
+  exprToggle.textContent = 'Show input LaTeX';
+  exprToggle.style.marginTop = '6px';
+  const exprPre = document.createElement('pre'); exprPre.className='tile-pre'; exprPre.textContent = inputText || '';
+  exprToggle.addEventListener('click', ()=>{
+    const show = exprPre.style.display==='none' || exprPre.style.display==='';
+    exprPre.style.display = show ? 'block' : 'none';
+    exprToggle.textContent = show ? 'Hide input LaTeX' : 'Show input LaTeX';
+  });
+  exprSec.appendChild(exprHolder);
+  exprSec.appendChild(exprToggle);
+  exprSec.appendChild(exprPre);
+
+  const evalSec = document.createElement('div');
+  evalSec.className = 'tile-section';
+  evalSec.innerHTML = `<div style="font-weight:600;margin-bottom:6px">Evaluated</div>`;
+  const evalHolder = document.createElement('div');
+  if (evaluatedSVG) {
+    const c = evaluatedSVG.cloneNode(true);
+    evalHolder.appendChild(c);
+    // Ensure responsiveness after append
+    applyResponsiveSVG(c);
+  }
+  const evalToggle = document.createElement('button');
+  evalToggle.textContent = 'Show evaluated LaTeX';
+  evalToggle.style.marginTop = '6px';
+  const evalPre = document.createElement('pre'); evalPre.className='tile-pre'; evalPre.textContent = evaluatedLatex || '';
+  evalToggle.addEventListener('click', ()=>{
+    const show = evalPre.style.display==='none' || evalPre.style.display==='';
+    evalPre.style.display = show ? 'block' : 'none';
+    evalToggle.textContent = show ? 'Hide evaluated LaTeX' : 'Show evaluated LaTeX';
+  });
+  evalSec.appendChild(evalHolder);
+  evalSec.appendChild(evalToggle);
+  evalSec.appendChild(evalPre);
+
+  body.appendChild(exprSec);
+  body.appendChild(evalSec);
+
+  const actions = document.createElement('div');
+  actions.className = 'tile-actions';
+
+  if (inputSVG){
+    const a = document.createElement('a');
+    a.textContent = 'Download Input SVG';
+    a.href = svgToBlobUrl(inputSVG);
+    a.download = 'input.svg';
+    a.addEventListener('click', ()=> setTimeout(()=>URL.revokeObjectURL(a.href), 0));
+    actions.appendChild(a);
+  }
+  if (evaluatedSVG){
+    const a = document.createElement('a');
+    a.textContent = 'Download Evaluated SVG';
+    a.href = svgToBlobUrl(evaluatedSVG);
+    a.download = 'equation.svg';
+    a.addEventListener('click', ()=> setTimeout(()=>URL.revokeObjectURL(a.href), 0));
+    actions.appendChild(a);
+  }
+  if (evaluatedLatex){
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = 'Copy Evaluated LaTeX';
+    copyBtn.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(evaluatedLatex); copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy Evaluated LaTeX',1000);}catch{}
+    });
+    actions.appendChild(copyBtn);
+  }
+
+  tile.appendChild(header);
+  tile.appendChild(body);
+  tile.appendChild(actions);
+  history.prepend(tile);
+}
+
+/* ---------- Seed history with a sample tile (no CE evaluation) ---------- */
+function addSeedTile(){
+  if (window.__seedAdded) return; // guard
+  window.__seedAdded = true;
+  
+  // Example 1: Infinite product
+  const expr1 = String.raw`2\prod_{n=1}^{\infty} \frac{4n^2}{4n^2-1}`;
+  const evalLatex1 = String.raw`\displaystyle 2\prod_{n=1}^{\infty} \frac{4n^2}{4n^2-1} = \frac{6\,058\,869\,978\,608\,365}{1\,928\,598\,695\,442\,179}`;
+  const tmpExpr1 = document.createElement('div');
+  const exprSVG1 = renderLatexTo(tmpExpr1, expr1, true);
+  const tmpEval1 = document.createElement('div');
+  const evalSVG1 = renderLatexTo(tmpEval1, evalLatex1, true);
+  makeTileCard({ inputText: expr1, inputSVG: exprSVG1, evaluatedLatex: evalLatex1, evaluatedSVG: evalSVG1 });
+  
+  // Example 2: Derivative evaluation
+  const expr2 = String.raw`\sin^{\prime}(x)|_{x=1}`;
+  const evalLatex2 = String.raw`\displaystyle \sin^{\prime}(x)|_{x=1} \approx 0.540\,302\,305\,868\,140`;
+  const tmpExpr2 = document.createElement('div');
+  const exprSVG2 = renderLatexTo(tmpExpr2, expr2, true);
+  const tmpEval2 = document.createElement('div');
+  const evalSVG2 = renderLatexTo(tmpEval2, evalLatex2, true);
+  makeTileCard({ inputText: expr2, inputSVG: exprSVG2, evaluatedLatex: evalLatex2, evaluatedSVG: evalSVG2 });
+  
+  // Example 3: Definite integral
+  const expr3 = String.raw`\int^{\pi}_{-\pi}\sin^2(x)dx`;
+  const evalLatex3 = String.raw`\displaystyle \int^{\pi}_{-\pi}\sin^2(x)dx \approx 3.141\,592\,653\,589\,79`;
+  const tmpExpr3 = document.createElement('div');
+  const exprSVG3 = renderLatexTo(tmpExpr3, expr3, true);
+  const tmpEval3 = document.createElement('div');
+  const evalSVG3 = renderLatexTo(tmpEval3, evalLatex3, true);
+  makeTileCard({ inputText: expr3, inputSVG: exprSVG3, evaluatedLatex: evalLatex3, evaluatedSVG: evalSVG3 });
+}
+
+/* ---------- Helpers ---------- */
+function numberString(n){
+  if (typeof n !== 'number' || !isFinite(n)) return String(n);
+  const abs = Math.abs(n);
+  if (abs!==0 && (abs<1e-8 || abs>=1e12)) return n.toExponential(12).replace(/\.?0+e/,'e');
+  return n.toPrecision(16).replace(/\.?0+$/,'');
+}
+function looksFullyNumeric(box){
+  try{
+    if (box.isNumeric) return true;
+    if (box.freeSymbols && box.freeSymbols.size===0) return true;
+  }catch{}
+  return false;
+}
+
+// Detect invalid numeric results
+function latexHasInvalid(latex){
+  if (!latex) return false;
+  return /NaN|\\operatorname\{NaN\}/i.test(latex);
+}
+function boxHasInvalid(bx){
+  try{
+    const mv = bx.machineValue ?? bx.numericValue;
+    if (typeof mv === 'number') return !isFinite(mv);
+  }catch{}
+  return false;
+}
+
+// Clean up "a \pm b" results: remove floating artifacts like 0.0007000000000000001
+// and align value precision to the error magnitude.
+function normalizePlusMinusLatex(latex){
+  try{
+    if (!latex || latex.indexOf('\\pm') === -1) return latex;
+    // Extract two sides around \pm; remove LaTeX grouping \, and spaces
+    const parts = latex.split(/\\pm/);
+    if (parts.length !== 2) return latex;
+    const clean = s => s.replace(/\\,/g,'').replace(/\s+/g,'');
+    let leftRaw = clean(parts[0]);
+    let rightRaw = clean(parts[1]);
+    // Keep only leading numeric token in each part
+    const numMatch = s => (s.match(/^[+-]?(?:\d*\.\d+|\d+\.?(?:\d*)?)/) || [null])[0];
+    const lv = numMatch(leftRaw);
+    const rv = numMatch(rightRaw);
+    if (lv == null || rv == null) return latex;
+    const left = parseFloat(lv);
+    const err  = Math.abs(parseFloat(rv));
+    if (!isFinite(left) || !isFinite(err) || err === 0) return latex;
+    // One significant digit in error, round main value to that place
+    const exp = Math.floor(Math.log10(err));
+    const factor = Math.pow(10, exp);
+    const errRounded = Math.round(err / factor) * factor;
+    const decimals = Math.max(0, -exp);
+    const roundTo = (x, d) => {
+      const f = Math.pow(10, d);
+      return Math.round(x * f) / f;
+    };
+    const leftRounded = roundTo(left, decimals);
+    // Format with fixed decimals for error; for value use same decimals
+    const leftStr = leftRounded.toFixed(decimals);
+    const errStr  = errRounded.toFixed(decimals);
+    return `${leftStr} \\pm ${errStr}`;
+  }catch{
+    return latex;
+  }
+}
+
+/* ---------- Numeric matrix ops (JS) ---------- */
+function identity(n){
+  return Array.from({length:n}, (_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
+}
+function multiply(A,B){
+  const n=A.length, m=A[0].length, p=B[0].length;
+  if (B.length!==m) throw Error('Matrix size mismatch');
+  const C = Array.from({length:n},()=>Array(p).fill(0));
+  for(let i=0;i<n;i++){
+    for(let k=0;k<m;k++){
+      const aik = A[i][k];
+      for(let j=0;j<p;j++) C[i][j] += aik*B[k][j];
+    }
+  }
+  return C;
+}
+function invert(A){
+  const n=A.length; if (n===0||A[0].length!==n) throw Error('Matrix must be square for inverse');
+  // Augment with identity
+  const M = A.map((row,i)=>[...row.map(v=>+v), ...identity(n)[i]]);
+  // Gauss-Jordan with partial pivoting
+  for(let col=0; col<n; col++){
+    // Pivot
+    let pivotRow = col; let maxAbs = Math.abs(M[col][col]);
+    for(let r=col+1;r<n;r++){ const v=Math.abs(M[r][col]); if (v>maxAbs){ maxAbs=v; pivotRow=r; } }
+    if (maxAbs===0) throw Error('Matrix is singular');
+    if (pivotRow!==col){ const tmp=M[col]; M[col]=M[pivotRow]; M[pivotRow]=tmp; }
+    // Normalize pivot row
+    const pivot = M[col][col];
+    for(let j=0;j<2*n;j++) M[col][j] /= pivot;
+    // Eliminate other rows
+    for(let r=0;r<n;r++) if (r!==col){
+      const factor = M[r][col];
+      if (factor!==0){ for(let j=0;j<2*n;j++) M[r][j] -= factor*M[col][j]; }
+    }
+  }
+  // Extract right half
+  const inv = Array.from({length:n},(_,i)=>M[i].slice(n,2*n));
+  return inv;
+}
+function powMatrix(A, e){
+  if (!Number.isInteger(e)) throw Error('Matrix power exponent must be integer');
+  if (e===0){ if (A.length===0||A.length!==A[0].length) throw Error('Matrix must be square for power 0'); return identity(A.length); }
+  if (e<0){ return powMatrix(invert(A), -e); }
+  // fast exponentiation
+  let base = A.map(r=>r.slice());
+  let res = identity(A.length);
+  let exp = e;
+  while (exp>0){
+    if (exp & 1) res = multiply(res, base);
+    exp >>= 1; if (exp) base = multiply(base, base);
+  }
+  return res;
+}
+function latexMatrixToNumbers(latexInner){
+  const rows = splitRows(latexInner.trim());
+  return rows.map(r => r.split('&').map(s => s.trim())).map(row => row.map(cell => {
+    const bx = ce.parse(cell).simplify().N();
+    const mv = bx.machineValue ?? bx.numericValue;
+    if (typeof mv === 'number' && isFinite(mv)) return mv;
+    throw Error('Non-numeric matrix entry');
+  }));
+}
+function formatMatrixLatex(A){
+  const rowStrings = A.map(r => r.map(x => numberString(x)).join(' & '));
+  const body = rowStrings.join(' \\\\ ');
+  return '\\begin{bmatrix}'+ body + '\\end{bmatrix}';
+}
+
+/* ---------- Evaluate LaTeX matrix expressions (multiplication + integer powers) ---------- */
+function tryEvaluateLatexMatrixExpression(src){
+  // Find all LaTeX matrices and replace with placeholders
+  const re = /\\begin\{(bmatrix|pmatrix|matrix)\}([\s\S]*?)\\end\{\1\}/g;
+  let m, matrices=[]; let s = src;
+  while ((m = re.exec(src))){
+    try{
+      const nums = latexMatrixToNumbers(m[2]);
+      matrices.push(nums);
+      s = s.replace(m[0], `__M${matrices.length-1}__`);
+    }catch(e){ /* if any entry non-numeric, bail */ return null; }
+  }
+  if (matrices.length===0) return null;
+
+  // Normalize operators
+  s = s.replace(/\\times|\\cdot/g, '*');
+  // Insert * between adjacent matrices
+  s = s.replace(/(__M\d+__)\s+(?=__M\d+__)/g, '$1 * ');
+
+  // Split factors by '*'
+  const parts = s.split('*').map(t=>t.trim()).filter(Boolean);
+  if (parts.length===0) return null;
+
+  function evalFactor(tok){
+    // Match __M0__ ^ {e} or __M0__ ^ e or just __M0__
+    const mm = tok.match(/^__M(\d+)__(?:\s*\^\s*(?:\{([+-]?\d+)\}|([+-]?\d+)))?$/);
+    if (!mm) throw Error('Unsupported matrix syntax');
+    const idx = parseInt(mm[1],10);
+    let exp = 1;
+    if (mm[2]!==undefined) exp = parseInt(mm[2],10);
+    else if (mm[3]!==undefined) exp = parseInt(mm[3],10);
+    const A = matrices[idx];
+    return (exp===1) ? A : powMatrix(A, exp);
+  }
+
+  try{
+    let acc = evalFactor(parts[0]);
+    for (let i=1;i<parts.length;i++){
+      const B = evalFactor(parts[i]);
+      acc = multiply(acc, B);
+    }
+  const rhs = formatMatrixLatex(acc);
+  // JS numeric matrix evaluation → mark as approximate
+  return { latex: String.raw`\displaystyle ${src} \approx ${rhs}`, approx: true };
+  }catch(e){
+    // not a supported pattern
+    return null;
+  }
+}
+
+/* ---------- Matrix-power fallback (robust, LaTeX-based) ---------- */
+const MAT_ENV = '(bmatrix|pmatrix|matrix)';
+const matPowRegex = new RegExp(
+  String.raw`^\s*\\begin\{${MAT_ENV}\}([\s\S]*?)\\end\{\1\}\s*\^\s*(?:\{([+-]?\d+)\}|([+-]?\d+))\s*$`
+);
+
+function splitRows(text){
+  const rows = [];
+  let cur = '', i = 0;
+  while (i < text.length){
+    if (text[i] === '\\' && text[i+1] === '\\'){ rows.push(cur); cur=''; i+=2; }
+    else { cur += text[i++]; }
+  }
+  rows.push(cur);
+  return rows;
+}
+function parseLatexMatrixToJS(latex){
+  // split rows and columns; keep simple (no nested matrices inside cells)
+  const rows = splitRows(latex.trim());
+  return rows.map(r => r.split('&').map(s => s.trim()));
+}
+function multiply(A,B){
+  const n=A.length, m=A[0].length, p=B[0].length;
+  const C = Array.from({length:n},()=>Array(p).fill(0));
+  for(let i=0;i<n;i++) for(let k=0;k<m;k++){
+    const aik = A[i][k];
+    for(let j=0;j<p;j++) C[i][j] += aik*B[k][j];
+  }
+  return C;
+}
+function powInt(A, e){
+  if (e===0){
+    const n=A.length;
+    return Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
+  }
+  if (e<0) throw Error('Negative powers not supported in fallback');
+  let res = A.map(r=>r.slice());
+  for(let k=1;k<e;k++) res = multiply(res, A);
+  return res;
+}
+function jsMatrixToLatex(env, A){
+  const rows = A.map(r => r.map(x => numberString(x)).join(' & ')).join(' \\\\ ');
+  return String.raw`\begin{${env}}${rows}\end{${env}}`;
+}
+function tryMatrixPowerFallback(src){
+  const m = src.match(matPowRegex);
+  if (!m) return null;
+  const env = m[1], inner = m[2], e = parseInt(m[3] ?? m[4], 10);
+  if (!Number.isInteger(e)) return null;
+
+  // Parse entries and numerically evaluate each via CE
+  const raw = parseLatexMatrixToJS(inner);
+  const nums = raw.map(row => row.map(cell => {
+    const bx = ce.parse(cell).simplify().N();  // <- CE current API
+    const mv = bx.machineValue ?? bx.numericValue;
+    if (typeof mv === 'number' && isFinite(mv)) return mv;
+    throw Error('Non-numeric matrix entry in fallback');
+  }));
+  if (nums.length===0 || nums.length !== nums[0].length) throw Error('Matrix must be square for power');
+  const powered = powInt(nums, e);
+  const rhs = jsMatrixToLatex(env, powered);
+  // Fallback uses numeric operations → mark approximate
+  return { latex: String.raw`\displaystyle ${src} \approx ${rhs}`, approx: true };
+}
+
+/* ---------- LaTeX Matrix to CE Translation ---------- */
+function translateLatexMatrixToCE(src) {
+  // Match LaTeX matrix patterns: \begin{bmatrix}...\end{bmatrix}, etc.
+  const matrixPattern = /\\begin\{(bmatrix|pmatrix|matrix)\}([\s\S]*?)\\end\{\1\}/g;
+  
+  let translated = src;
+  let match;
+  
+  // Find all matrices and replace them with CE format
+  while ((match = matrixPattern.exec(src)) !== null) {
+    const matrixContent = match[2].trim();
+    const ceMatrix = latexMatrixContentToCE(matrixContent);
+    translated = translated.replace(match[0], ceMatrix);
+  }
+  
+  // Replace LaTeX operators with CE equivalents
+  translated = translated
+    .replace(/\\times/g, '*')           // \times -> *
+    .replace(/\\cdot/g, '*')            // \cdot -> *
+    .replace(/\^{([^}]+)}/g, '^($1)')   // ^{expr} -> ^(expr)
+    .replace(/\^(-?\d+)/g, '^$1');      // ^n -> ^n (for simple numbers)
+  
+  return translated;
+}
+
+function latexMatrixContentToCE(content) {
+  // Split by \\ for rows
+  const rows = content.split('\\\\').map(row => row.trim()).filter(row => row);
+  
+  // Convert each row to CE format
+  const ceRows = rows.map(row => {
+    // Split by & for columns, clean up whitespace
+    const cols = row.split('&').map(col => col.trim());
+    return '[' + cols.join(', ') + ']';
+  });
+  
+  return '[' + ceRows.join(', ') + ']';
+}
+
+function tryTranslatedMatrixEvaluation(src) {
+  // Only attempt translation if we detect LaTeX matrices
+  if (!src.includes('\\begin{') && !src.includes('matrix}')) {
+    return null;
+  }
+  
+  try {
+    const translated = translateLatexMatrixToCE(src);
+    
+    // If translation actually changed something, try evaluating
+    if (translated !== src) {
+      console.log('Translated:', src, '->', translated);
+      
+      const box = ce.parse(translated);
+      const simplified = box.simplify();
+      const nbox = simplified.N();
+      
+      // Check if we got a meaningful result
+      const result = nbox.latex ?? nbox.toLatex?.() ?? '';
+      if (result && result.trim() !== translated.trim()) {
+        return {
+          original: src,
+          translated: translated,
+          result: result,
+          latex: String.raw`\displaystyle ${src} = ${result}`
+        };
+      }
+      
+      // Even if no symbolic change, check for numeric result
+      if (nbox.json && Array.isArray(nbox.json)) {
+        // Try to convert CE result back to LaTeX matrix format
+        const latexResult = ceResultToLatexMatrix(nbox);
+        if (latexResult) {
+          return {
+            original: src,
+            translated: translated,
+            result: latexResult,
+            latex: String.raw`\displaystyle ${src} = ${latexResult}`
+          };
+        }
+      }
+    }
+  } catch(e) {
+    console.log('Matrix translation failed:', e.message);
+  }
+  
+  return null;
+}
+
+function ceResultToLatexMatrix(nbox) {
+  try {
+    // Handle matrix results from CE
+    if (nbox.json && Array.isArray(nbox.json)) {
+      const json = nbox.json;
+      
+      // Check if it's a matrix/list structure
+      if (json[0] === 'List' || (Array.isArray(json[1]) && Array.isArray(json[1][1]))) {
+        const matrix = json.slice(1); // Skip the 'List' identifier
+        
+        // Convert to LaTeX bmatrix format
+        const rows = matrix.map(row => {
+          if (Array.isArray(row) && row[0] === 'List') {
+            // Handle nested list format
+            return row.slice(1).map(val => numberString(val)).join(' & ');
+          } else if (Array.isArray(row)) {
+            // Handle direct array format
+            return row.map(val => numberString(val)).join(' & ');
+          }
+          return String(row);
+        });
+        
+        return `\\begin{bmatrix}${rows.join(' \\\\ ')}\\end{bmatrix}`;
+      }
+    }
+  } catch(e) {
+    console.log('CE result conversion failed:', e);
+  }
+  
+  return null;
+}
+
+/* ---------- Direct matrix operations with Compute Engine ---------- */
+function tryDirectMatrixOps(src) {
+  // Check for matrix multiplication: [[a,b],[c,d]] * [[e,f],[g,h]]
+  if (src.includes('*') && src.includes('[')) {
+    try {
+      const box = ce.parse(src);
+      const result = box.simplify().N();
+      
+      // Check if result is a matrix/array
+      if (result.json && Array.isArray(result.json) && result.json[0] === 'Matrix') {
+        const latex = result.latex ?? result.toLatex?.();
+        if (latex && latex !== src) {
+          return { latex: String.raw`\displaystyle ${src} = ${latex}` };
+        }
+      }
+    } catch(e) {
+      // Fall through to other methods
+    }
+  }
+  
+  return null;
+}
+
+/* ---------- Main refresh ---------- */
+function refresh(){
+  error.textContent=''; result.textContent='';
+  evaluated.innerHTML=''; preview.innerHTML=''; latexOut.textContent='';
+  lastEvalLatex=''; lastSVG=null; lastPreviewSVG=null; dlBtn.disabled=true; dlInputBtn.disabled=true;
+  loading.style.display='none';
+
+  const src = input.value.trim();
+  if (!src) return;
+  lastInputText = src;
+
+  // Always typeset the input block (align*, matrices, etc.)
+  lastPreviewSVG = renderLatexTo(preview, src, true);
+  if (lastPreviewSVG) dlInputBtn.disabled = false;
+
+  // Show loading indicator for potentially long computations
+  loading.style.display='flex';
+  
+  // Use setTimeout to allow UI to update before starting computation
+  setTimeout(() => {
+    try {
+      computeAndRender(src);
+    } catch(e) {
+      handleComputationError(e, src);
+    } finally {
+      loading.style.display='none';
+    }
+  }, 10);
+}
+
+function computeAndRender(src) {
+  let approx = false; // whether numeric approximation was used
+  // 0) Try pure LaTeX matrix evaluation via JS (multiplication + integer powers + inverse)
+  try{
+    const mx = tryEvaluateLatexMatrixExpression(src);
+    if (mx){
+      lastEvalLatex = mx.latex;
+      approx = true;
+      lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+      if (lastSVG) dlBtn.disabled = false;
+      latexOut.textContent = lastEvalLatex;
+      return;
+    }
+  }catch{ /* ignore */ }
+
+  // 1) Try LaTeX matrix translation to CE format first
+  try{
+    const matrixResult = tryTranslatedMatrixEvaluation(src);
+    if (matrixResult) {
+      lastEvalLatex = matrixResult.latex;
+      lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+      if (lastSVG) dlBtn.disabled = false;
+      latexOut.textContent = lastEvalLatex;
+      return;
+    }
+  }catch(e){ 
+    console.log('Matrix translation failed:', e.message);
+  }
+
+  // 2) Try general Compute Engine evaluation
+  try{
+    // Pre-process derivative evaluation notation: f(x)|_{x=a} -> substitute x=a into f(x)
+    let srcProcessed = src;
+    const evalBarMatch = src.match(/([\s\S]+?)\|_{(.+?)=(.+?)}/);
+    if (evalBarMatch) {
+      const expr = evalBarMatch[1].trim();
+      const varName = evalBarMatch[2].trim();
+      const value = evalBarMatch[3].trim();
+      // Try to parse as ["At", expr, [varName, value]]
+      console.log('Detected evaluation bar notation:', {expr, varName, value});
+      try {
+        const exprBox = ce.parse(expr);
+        const valueBox = ce.parse(value);
+        // Create substitution: replace varName with value in expr
+        const substituted = exprBox.subs({[varName]: valueBox});
+        const result = substituted.simplify().N();
+        let rhs = result.latex ?? result.toLatex?.() ?? '';
+        if (rhs && !latexHasInvalid(rhs)) {
+          // Apply 15-digit formatting with thousand separators
+          const numStr = rhs.replace(/\\,/g, '');
+          const parsed = parseFloat(numStr);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            let formatted = parsed.toPrecision(15);
+            // Add back \, thousand separators for readability
+            const parts = formatted.split('.');
+            if (parts[0]) {
+              parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\\,');
+            }
+            if (parts[1]) {
+              parts[1] = parts[1].replace(/(\d{3})/g, '$1\\,').replace(/\\,$/,'');
+            }
+            rhs = parts.join('.');
+            console.log('Formatted evaluation bar result to 15 digits:', rhs);
+          }
+          lastEvalLatex = String.raw`\displaystyle ${src} \approx ${rhs}`;
+          lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+          if (lastSVG) dlBtn.disabled = false;
+          latexOut.textContent = lastEvalLatex;
+          const mv = result.machineValue ?? result.numericValue;
+          if (typeof mv === 'number' && isFinite(mv)) result.textContent = '= ' + numberString(mv);
+          console.log('Successfully evaluated via substitution:', rhs);
+          return;
+        }
+      } catch(e) {
+        console.log('Substitution approach failed:', e.message);
+      }
+    }
+    
+    const box     = ce.parse(srcProcessed);         // LaTeX → Boxed
+    // For definite integrals, prefer evaluate() to trigger numeric fallback
+    // Match both \int_{...}^{...} and \int^{...}_{...} (order can vary)
+    const isDefIntegral = /\\int[\s\S]*?[_^]\{[\s\S]*?\}[\s\S]*?[_^]\{[\s\S]*?\}/.test(src);
+    // Check for derivative evaluation patterns like f'(x)|_{x=a} or \left. f \right|_{x=a}
+    const isDerivEval = /\\prime|\\left\.|\\right\|/.test(src) && /\|[\s\S]*?[_=]/.test(src);
+    console.log('Input:', src, 'isDefIntegral:', isDefIntegral, 'isDerivEval:', isDerivEval);
+    const primary = (isDefIntegral || isDerivEval) ? box.evaluate() : box.simplify();
+    let nbox;
+    try{
+      // Try very high precision for integrals to get accurate results
+      nbox = isDefIntegral ? primary.N(128) : primary.N(64);
+    }catch{ 
+      try{ nbox = primary.N(64); }catch{ nbox = primary.N(); }
+    }
+    if (isDefIntegral) approx = true;
+
+    // Check if we got a meaningful result that's different from input
+    let rhs;
+    try {
+      // Get LaTeX output from CE
+      rhs = nbox.toLatex?.() ?? nbox.latex ?? String(nbox);
+      
+      // For integrals, limit precision to 15 significant digits
+      if (isDefIntegral && rhs) {
+        // Remove LaTeX formatting to get the numeric string
+        const numStr = rhs.replace(/\\,/g, '');
+        // Try to parse as number
+        const parsed = parseFloat(numStr);
+        if (!isNaN(parsed) && isFinite(parsed)) {
+          // Reformat with exactly 15 significant digits
+          let formatted = parsed.toPrecision(15);
+          // Add back \, thousand separators for readability
+          const parts = formatted.split('.');
+          if (parts[0]) {
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\\,');
+          }
+          if (parts[1]) {
+            parts[1] = parts[1].replace(/(\d{3})/g, '$1\\,').replace(/\\,$/,'');
+          }
+          rhs = parts.join('.');
+          console.log('Formatted integral result to 15 digits:', rhs);
+        }
+      }
+    } catch (e) {
+      console.log('Error extracting result:', e);
+      rhs = nbox.latex ?? nbox.toLatex?.() ?? '';
+    }
+    // Guard against NaN/Infinity appearing in result
+    if (latexHasInvalid(rhs) || boxHasInvalid(nbox)) {
+      throw new Error('Evaluation produced an invalid result (NaN/∞).');
+    }
+    // Cleanup any a \pm b formatting artifacts
+    const rhsClean = normalizePlusMinusLatex(rhs);
+    // If result contains \pm error estimate, it's numeric → mark approx
+    if (rhsClean.includes('\\pm')) approx = true;
+    if (rhsClean && rhsClean.trim() !== src.trim()) {
+      // Compute Engine successfully evaluated it
+      const eq = approx ? '\\approx' : '=';
+      lastEvalLatex = String.raw`\displaystyle ${src} ${eq} ${rhsClean}`;
+      lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+      if (lastSVG) dlBtn.disabled = false;
+      latexOut.textContent = lastEvalLatex;
+      
+      // Also show numeric result if applicable
+      if (looksFullyNumeric(nbox)) {
+        const mv = nbox.machineValue ?? nbox.numericValue;
+        if (typeof mv === 'number' && isFinite(mv)) result.textContent = '= ' + numberString(mv);
+      }
+      return;
+    }
+    
+    // If we get here, CE parsed it but didn't evaluate to something different
+    // Check if it's at least numeric for display
+    if (looksFullyNumeric(nbox)) {
+      const mv = nbox.machineValue ?? nbox.numericValue;
+      if (typeof mv === 'number' && isFinite(mv)) {
+        result.textContent = '= ' + numberString(mv);
+        lastEvalLatex = src; // Show original input since no symbolic result
+        lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+        if (lastSVG) dlBtn.disabled = false;
+        latexOut.textContent = lastEvalLatex;
+        return;
+      }
+    }
+  }catch(e){ 
+    // If CE fails, try a last-chance numeric pass for integrals
+    try{
+      if (/Integral/i.test(e.message || '') || /integral/i.test(src)){
+        const box = ce.parse(src);
+        let nbox;
+        try{ nbox = box.evaluate().N(128); }catch{ 
+          try{ nbox = box.evaluate().N(64); }catch{ nbox = box.evaluate().N(); }
+        }
+        let rhs;
+        try {
+          // Get LaTeX output from CE
+          rhs = nbox.toLatex?.() ?? nbox.latex ?? String(nbox);
+          // Remove LaTeX formatting and limit to 15 digits
+          const numStr = rhs.replace(/\\,/g, '');
+          const parsed = parseFloat(numStr);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            let formatted = parsed.toPrecision(15);
+            // Add back \, thousand separators for readability
+            const parts = formatted.split('.');
+            if (parts[0]) {
+              parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\\,');
+            }
+            if (parts[1]) {
+              parts[1] = parts[1].replace(/(\d{3})/g, '$1\\,').replace(/\\,$/,'');
+            }
+            rhs = parts.join('.');
+            console.log('Formatted fallback integral to 15 digits:', rhs);
+          }
+        } catch {
+          rhs = nbox.latex ?? nbox.toLatex?.() ?? '';
+        }
+        const rhsClean = normalizePlusMinusLatex(rhs);
+        if (rhsClean && !latexHasInvalid(rhsClean)){
+          lastEvalLatex = String.raw`\displaystyle ${src} \approx ${rhsClean}`;
+          lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+          if (lastSVG) dlBtn.disabled = false;
+          latexOut.textContent = lastEvalLatex;
+          return;
+        }
+      }
+    }catch{/* ignore and continue to other fallbacks */}
+    
+    // Try derivative evaluation patterns
+    try{
+      if (/\\prime|derivative/i.test(e.message || '') || /\\prime/.test(src) || /\|[\s\S]*?[_=]/.test(src)){
+        console.log('Attempting derivative evaluation fallback...');
+        const box = ce.parse(src);
+        let nbox;
+        try{ nbox = box.evaluate().N(); }catch{ nbox = box.N(); }
+        const rhs = nbox.latex ?? nbox.toLatex?.() ?? '';
+        if (rhs && !latexHasInvalid(rhs) && rhs.trim() !== src.trim()){
+          lastEvalLatex = String.raw`\displaystyle ${src} \approx ${rhs}`;
+          lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+          if (lastSVG) dlBtn.disabled = false;
+          latexOut.textContent = lastEvalLatex;
+          // Also show numeric result if it's a simple number
+          const mv = nbox.machineValue ?? nbox.numericValue;
+          if (typeof mv === 'number' && isFinite(mv)) result.textContent = '= ' + numberString(mv);
+          return;
+        }
+      }
+    }catch{/* ignore and continue to other fallbacks */}
+    
+    // Surface the error; fallbacks might still handle other cases
+    console.log('Compute Engine failed:', e.message);
+  }
+
+  // 3) Try matrix-power fallback for cases CE doesn't handle
+  try{
+    const mp = tryMatrixPowerFallback(src);
+    if (mp){
+      lastEvalLatex = mp.latex;
+      lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+      if (lastSVG) dlBtn.disabled=false;
+      latexOut.textContent = lastEvalLatex;
+      return;
+    }
+  }catch(e){ /* soft ignore; continue */ }
+
+  // 4) Try direct matrix operations with Compute Engine (for [[]] syntax)
+  try{
+    const directMatrix = tryDirectMatrixOps(src);
+    if (directMatrix) {
+      lastEvalLatex = directMatrix.latex;
+      lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+      if (lastSVG) dlBtn.disabled=false;
+      latexOut.textContent = lastEvalLatex;
+      return;
+    }
+  }catch(e){ /* soft ignore; continue */ }
+
+  // 5) If nothing worked, just render input as-is
+  throw new Error('Unable to evaluate expression');
+}
+
+function handleComputationError(e, src) {
+  // As promised: render input as-is if we can't evaluate
+  lastEvalLatex = src;
+  lastSVG = renderLatexTo(evaluated, lastEvalLatex, true);
+  if (lastSVG) dlBtn.disabled = false;
+  latexOut.textContent = lastEvalLatex;
+  error.textContent = e.message || 'Rendered input only.';
+}
+
+/* ---------- Actions ---------- */
+function downloadSVG(){
+  if (!lastSVG) return;
+  const clone = lastSVG.cloneNode(true);
+  // pad viewBox a bit
+  try{
+    const vb = clone.getAttribute('viewBox')?.split(' ').map(Number);
+    if (vb && vb.length===4){
+      const pad=2; const [x,y,w,h]=vb;
+      clone.setAttribute('viewBox', `${x-pad} ${y-pad} ${w+2*pad} ${h+2*pad}`);
+    }
+  }catch{}
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], {type:'image/svg+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'equation.svg';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+function downloadInputSVG(){
+  if (!lastPreviewSVG) return;
+  const clone = lastPreviewSVG.cloneNode(true);
+  try{
+    const vb = clone.getAttribute('viewBox')?.split(' ').map(Number);
+    if (vb && vb.length===4){
+      const pad=2; const [x,y,w,h]=vb;
+      clone.setAttribute('viewBox', `${x-pad} ${y-pad} ${w+2*pad} ${h+2*pad}`);
+    }
+  }catch{}
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], {type:'image/svg+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'input.svg';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+/* Tab → spaces; Enter produces newline by default */
+const TAB_SPACES = '  '; // change to '    ' if you want 4
+input.addEventListener('keydown', (e)=>{
+  if (e.key === 'Tab'){
+    e.preventDefault();
+    const el = e.target;
+    const start = el.selectionStart, end = el.selectionEnd;
+    const v = el.value;
+    el.value = v.slice(0,start) + TAB_SPACES + v.slice(end);
+    el.selectionStart = el.selectionEnd = start + TAB_SPACES.length;
+    refresh();
+  }
+});
+
+input.addEventListener('input', refresh);
+copyBtn.addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText(lastEvalLatex || input.value.trim()); copied.style.display='inline-block'; setTimeout(()=>copied.style.display='none',1200);}catch{}
+});
+dlBtn.addEventListener('click', downloadSVG);
+dlInputBtn.addEventListener('click', downloadInputSVG);
+
+// Add evaluated result to history as a tile
+function addCurrentToHistory(){
+  // Clone SVG nodes if present (so tiles are independent of live DOM)
+  const inputSVG = lastPreviewSVG ? lastPreviewSVG.cloneNode(true) : null;
+  const evaluatedSVG = lastSVG ? lastSVG.cloneNode(true) : null;
+  makeTileCard({
+    inputText: lastInputText,
+    inputSVG,
+    evaluatedLatex: lastEvalLatex,
+    evaluatedSVG
+  });
+}
+
+// Evaluate button
+const evalBtn = document.getElementById('evalBtn');
+evalBtn.addEventListener('click', ()=>{
+  // If evaluated content not yet produced, run refresh once quickly
+  if (!lastSVG && input.value.trim()){
+    refresh();
+    // Give MathJax a tick then add
+    setTimeout(addCurrentToHistory, 30);
+  } else {
+    addCurrentToHistory();
+  }
+});
+
+// Shift+Enter: evaluate and add tile
+input.addEventListener('keydown', (e)=>{
+  if (e.key === 'Enter' && e.shiftKey){
+    e.preventDefault();
+    // Insert newline as before
+    const el = e.target;
+    const start = el.selectionStart, end = el.selectionEnd;
+    const v = el.value;
+    el.value = v.slice(0,start) + '\n' + v.slice(end);
+    el.selectionStart = el.selectionEnd = start + 1;
+    refresh();
+    setTimeout(addCurrentToHistory, 30);
+  }
+});
+
+ready().then(()=>{ addSeedTile(); refresh(); });
+
+// Quickbar behavior
+window.addEventListener('DOMContentLoaded', ()=>{
+  const qb = document.getElementById('quickbar');
+  if (!qb) return;
+  const toggle = document.getElementById('quickbarToggle');
+  const keys = document.getElementById('quickbarKeys');
+  toggle.addEventListener('click', ()=>{
+    const show = keys.style.display!== 'flex';
+    keys.style.display = show ? 'flex' : 'none';
+  });
+  keys.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.qb-btn');
+    if (!btn) return;
+    const snippet = btn.getAttribute('data-snippet') || '';
+    const el = input;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const CUR = '__CURSOR__';
+    let ins = snippet;
+    const curIdx = ins.indexOf(CUR);
+    if (curIdx>=0){
+      ins = ins.replace(CUR, '');
+      el.value = el.value.slice(0,start) + ins + el.value.slice(end);
+      const pos = start + curIdx;
+      el.selectionStart = el.selectionEnd = pos;
+    } else {
+      el.value = el.value.slice(0,start) + ins + el.value.slice(end);
+      const pos = start + ins.length;
+      el.selectionStart = el.selectionEnd = pos;
+    }
+    el.focus();
+    refresh();
+  });
+});
+</script>
